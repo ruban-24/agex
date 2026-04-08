@@ -8,7 +8,7 @@ import {
   BRANCH_PREFIX,
   DEFAULT_PORTS,
 } from '../constants.js';
-import type { TaskRecord } from '../types.js';
+import type { TaskRecord, TaskStatus } from '../types.js';
 
 export interface CreateTaskOptions {
   prompt: string;
@@ -81,5 +81,64 @@ export class TaskManager {
 
   async saveTask(task: TaskRecord): Promise<void> {
     await writeFile(taskFilePath(this.repoRoot, task.id), JSON.stringify(task, null, 2));
+  }
+
+  private static VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
+    pending: ['provisioning'],
+    provisioning: ['ready', 'errored'],
+    ready: ['running', 'verifying'],
+    running: ['verifying', 'errored'],
+    verifying: ['completed', 'failed'],
+    completed: ['merged', 'discarded'],
+    failed: ['merged', 'discarded'],
+    errored: ['discarded'],
+    merged: [],
+    discarded: [],
+  };
+
+  async updateStatus(id: string, newStatus: TaskStatus): Promise<TaskRecord> {
+    const task = await this.getTask(id);
+    if (!task) {
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    const allowed = TaskManager.VALID_TRANSITIONS[task.status];
+    if (!allowed.includes(newStatus)) {
+      throw new Error(
+        `Invalid transition: ${task.status} → ${newStatus} (allowed: ${allowed.join(', ')})`
+      );
+    }
+
+    task.status = newStatus;
+
+    if (newStatus === 'running' && !task.started_at) {
+      task.started_at = new Date().toISOString();
+    }
+
+    if (
+      (newStatus === 'completed' || newStatus === 'failed' || newStatus === 'errored') &&
+      !task.finished_at
+    ) {
+      task.finished_at = new Date().toISOString();
+      if (task.started_at) {
+        task.duration_s = Math.round(
+          (new Date(task.finished_at).getTime() - new Date(task.started_at).getTime()) / 1000
+        );
+      }
+    }
+
+    await this.saveTask(task);
+    return task;
+  }
+
+  async updateTask(id: string, updates: Partial<TaskRecord>): Promise<TaskRecord> {
+    const task = await this.getTask(id);
+    if (!task) {
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    Object.assign(task, updates);
+    await this.saveTask(task);
+    return task;
   }
 }
