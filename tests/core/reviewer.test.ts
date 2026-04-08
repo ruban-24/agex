@@ -88,4 +88,45 @@ describe('Reviewer', () => {
       expect(text).toContain('const y = 2');
     });
   });
+
+  describe('merge', () => {
+    it('merges a branch into the current branch', async () => {
+      const wtPath = join(repo.path, '.agentpod', 'worktrees', 'merge01');
+      execSync(`git worktree add -b agentpod/merge01 "${wtPath}"`, {
+        cwd: repo.path,
+        stdio: 'ignore',
+      });
+      await writeFile(join(wtPath, 'merged-file.ts'), 'export const merged = true;\n');
+      execSync('git add . && git commit -m "add merged file"', { cwd: wtPath, stdio: 'ignore' });
+
+      const result = await reviewer.merge('agentpod/merge01');
+
+      expect(result.success).toBe(true);
+      expect(result.strategy).toBeDefined();
+
+      // Verify the file exists on the main branch now
+      const { access: acc } = await import('node:fs/promises');
+      await acc(join(repo.path, 'merged-file.ts'));
+    });
+
+    it('reports merge conflicts', async () => {
+      // Create conflicting changes
+      await writeFile(join(repo.path, 'conflict.ts'), 'const main = true;\n');
+      execSync('git add . && git commit -m "main change"', { cwd: repo.path, stdio: 'ignore' });
+
+      // Now create a branch from BEFORE that commit, make a conflicting change
+      const parentSha = execSync('git rev-parse HEAD~1', { cwd: repo.path, encoding: 'utf-8' }).trim();
+      const wtPath = join(repo.path, '.agentpod', 'worktrees', 'merge02');
+      execSync(`git worktree add -b agentpod/merge02 "${wtPath}" ${parentSha}`, {
+        cwd: repo.path,
+        stdio: 'ignore',
+      });
+      await writeFile(join(wtPath, 'conflict.ts'), 'const branch = true;\n');
+      execSync('git add . && git commit -m "branch change"', { cwd: wtPath, stdio: 'ignore' });
+
+      const result = await reviewer.merge('agentpod/merge02');
+
+      expect(result.success).toBe(false);
+    });
+  });
 });

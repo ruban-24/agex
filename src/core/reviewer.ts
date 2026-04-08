@@ -54,4 +54,42 @@ export class Reviewer {
       return '';
     }
   }
+
+  async merge(branch: string): Promise<{ success: boolean; strategy?: string; commit?: string }> {
+    const git = simpleGit(this.repoRoot);
+
+    try {
+      // Try fast-forward first
+      try {
+        await git.raw(['merge', '--ff-only', branch]);
+        const commit = (await git.raw(['rev-parse', 'HEAD'])).trim();
+        return { success: true, strategy: 'fast-forward', commit };
+      } catch {
+        // Not fast-forwardable, try regular merge
+      }
+
+      const output = await git.raw(['merge', branch, '-m', `Merge ${branch}`]);
+
+      // simple-git raw() may not throw on merge conflicts; check output
+      if (output && output.includes('CONFLICT')) {
+        try {
+          await git.raw(['merge', '--abort']);
+        } catch {
+          // May not be in a merge state
+        }
+        return { success: false };
+      }
+
+      const commit = (await git.raw(['rev-parse', 'HEAD'])).trim();
+      return { success: true, strategy: 'merge', commit };
+    } catch {
+      // Abort failed merge
+      try {
+        await git.raw(['merge', '--abort']);
+      } catch {
+        // May not be in a merge state
+      }
+      return { success: false };
+    }
+  }
 }
