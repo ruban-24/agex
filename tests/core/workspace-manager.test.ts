@@ -118,4 +118,54 @@ describe('WorkspaceManager', () => {
       await wm.provision(taskId, {});
     });
   });
+
+  describe('runSetupHooks', () => {
+    it('runs blocking setup commands in the worktree directory', async () => {
+      const { writeFile: wf } = await import('node:fs/promises');
+      const taskId = 'setup1';
+      const branch = 'agentpod/setup1';
+      await wm.createWorktree(taskId, branch);
+
+      const wtPath = join(repo.path, '.agentpod', 'worktrees', taskId);
+
+      await wm.runSetupHooks(taskId, ['touch setup-marker.txt']);
+
+      await access(join(wtPath, 'setup-marker.txt'));
+    });
+
+    it('runs multiple setup commands in order', async () => {
+      const taskId = 'setup2';
+      const branch = 'agentpod/setup2';
+      await wm.createWorktree(taskId, branch);
+
+      const wtPath = join(repo.path, '.agentpod', 'worktrees', taskId);
+
+      await wm.runSetupHooks(taskId, [
+        'echo "step1" > order.txt',
+        'echo "step2" >> order.txt',
+      ]);
+
+      const content = await readFile(join(wtPath, 'order.txt'), 'utf-8');
+      expect(content.trim()).toBe('step1\nstep2');
+    });
+
+    it('throws when a setup command fails', async () => {
+      const taskId = 'setup3';
+      const branch = 'agentpod/setup3';
+      await wm.createWorktree(taskId, branch);
+
+      await expect(
+        wm.runSetupHooks(taskId, ['exit 1'])
+      ).rejects.toThrow();
+    });
+
+    it('does nothing with empty setup array', async () => {
+      const taskId = 'setup4';
+      const branch = 'agentpod/setup4';
+      await wm.createWorktree(taskId, branch);
+
+      // Should not throw
+      await wm.runSetupHooks(taskId, []);
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import simpleGit from 'simple-git';
 import { copyFile, symlink, mkdir, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
+import { execaCommand } from 'execa';
 import { worktreePath } from '../constants.js';
 
 export class WorkspaceManager {
@@ -59,6 +60,14 @@ export class WorkspaceManager {
           throw err;
         }
       }
+    }
+  }
+
+  async runSetupHooks(taskId: string, commands: string[]): Promise<void> {
+    const wtPath = worktreePath(this.repoRoot, taskId);
+
+    for (const cmd of commands) {
+      await execaCommand(cmd, { cwd: wtPath, shell: true });
     }
   }
 
