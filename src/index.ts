@@ -5,7 +5,10 @@ import { taskCreateCommand } from './cli/commands/task-create.js';
 import { taskStatusCommand } from './cli/commands/task-status.js';
 import { taskExecCommand } from './cli/commands/task-exec.js';
 import { runCommand } from './cli/commands/run.js';
-import { formatOutput } from './cli/output.js';
+import { listCommand } from './cli/commands/list.js';
+import { logCommand } from './cli/commands/log.js';
+import { summaryCommand } from './cli/commands/summary.js';
+import { formatOutput, formatTable } from './cli/output.js';
 
 const program = new Command();
 
@@ -80,6 +83,43 @@ program
       cmd: opts.cmd,
       wait: opts.wait,
     });
+    console.log(formatOutput(result, opts.human));
+  });
+
+program
+  .command('list')
+  .description('List all tasks')
+  .option('--human', 'Human-friendly output', false)
+  .action(async (opts) => {
+    const result = await listCommand(getRepoRoot());
+    if (opts.human) {
+      const headers = ['ID', 'Status', 'Prompt', 'Files Changed'];
+      const rows = result.map((t) => [
+        t.id,
+        t.status,
+        t.prompt.slice(0, 40),
+        String(t.diff_stats?.files_changed ?? '-'),
+      ]);
+      console.log(formatTable(headers, rows));
+    } else {
+      console.log(formatOutput(result, false));
+    }
+  });
+
+program
+  .command('log <id>')
+  .description('Show captured agent output for a task')
+  .action(async (id) => {
+    const log = await logCommand(getRepoRoot(), id);
+    console.log(log);
+  });
+
+program
+  .command('summary')
+  .description('Summary of all tasks')
+  .option('--human', 'Human-friendly output', false)
+  .action(async (opts) => {
+    const result = await summaryCommand(getRepoRoot());
     console.log(formatOutput(result, opts.human));
   });
 
