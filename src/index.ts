@@ -8,6 +8,9 @@ import { runCommand } from './cli/commands/run.js';
 import { listCommand } from './cli/commands/list.js';
 import { logCommand } from './cli/commands/log.js';
 import { summaryCommand } from './cli/commands/summary.js';
+import { verifyCommand } from './cli/commands/verify.js';
+import { diffCommand } from './cli/commands/diff.js';
+import { compareCommand } from './cli/commands/compare.js';
 import { formatOutput, formatTable } from './cli/output.js';
 
 const program = new Command();
@@ -120,6 +123,33 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
     const result = await summaryCommand(getRepoRoot());
+    console.log(formatOutput(result, opts.human));
+  });
+
+program
+  .command('verify <id>')
+  .description('Run verification checks against a task')
+  .option('--human', 'Human-friendly output', false)
+  .action(async (id, opts) => {
+    const result = await verifyCommand(getRepoRoot(), id);
+    console.log(formatOutput(result, opts.human));
+  });
+
+program
+  .command('diff <id>')
+  .description('Show diff of changes in a task')
+  .option('--human', 'Human-friendly output', false)
+  .action(async (id, opts) => {
+    const result = await diffCommand(getRepoRoot(), id);
+    console.log(formatOutput(result, opts.human));
+  });
+
+program
+  .command('compare <ids...>')
+  .description('Compare multiple tasks')
+  .option('--human', 'Human-friendly output', false)
+  .action(async (ids, opts) => {
+    const result = await compareCommand(getRepoRoot(), ids);
     console.log(formatOutput(result, opts.human));
   });
 
