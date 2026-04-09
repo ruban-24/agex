@@ -1,11 +1,8 @@
 import { readFile, access, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { AgentpodConfig } from '../types.js';
 
-export interface ProvisioningConfig {
-  copy?: string[];
-  symlink?: string[];
-  setup?: string[];
-}
+export type ProvisioningConfig = Pick<AgentpodConfig, 'copy' | 'symlink' | 'setup'>;
 
 async function fileExists(path: string): Promise<boolean> {
   try {
@@ -99,9 +96,9 @@ export async function detectProvisioning(repoRoot: string): Promise<Provisioning
     }
   }
 
-  // Pipfile → pip install -r requirements.txt
+  // Pipfile → pipenv install
   if (!config.setup && await fileExists(join(repoRoot, 'Pipfile'))) {
-    config.setup = ['pip install -r requirements.txt'];
+    config.setup = ['pipenv install'];
   }
 
   // pyproject.toml → pip install -e .

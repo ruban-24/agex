@@ -149,11 +149,11 @@ describe('detectProvisioning', () => {
     expect(config.setup).toBeUndefined();
   });
 
-  it('detects pip install from Pipfile', async () => {
+  it('detects pipenv install from Pipfile', async () => {
     await writeFile(join(repo.path, 'Pipfile'), '[packages]\n');
 
     const config = await detectProvisioning(repo.path);
-    expect(config.setup).toEqual(['pip install -r requirements.txt']);
+    expect(config.setup).toEqual(['pipenv install']);
   });
 
   it('detects pip install -e from pyproject.toml', async () => {
