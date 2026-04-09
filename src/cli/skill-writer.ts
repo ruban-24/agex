@@ -17,6 +17,7 @@ export const AGENT_PATHS: Record<AgentId, string> = {
   'copilot': '.github/skills/agentpod/SKILL.md',
 };
 
+// Inlined from skills/agentpod/SKILL.md — update both when content changes.
 export const SKILL_CONTENT = `---
 name: agentpod
 description: Use when working in a git repository and needing to run coding tasks in parallel, try multiple approaches to a problem, isolate risky changes in safe worktrees, or verify and compare results before merging
