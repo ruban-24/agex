@@ -11,6 +11,7 @@
     <a href="https://www.npmjs.com/package/agentpod"><img src="https://img.shields.io/npm/v/agentpod.svg" alt="npm version"></a>
     <a href="https://github.com/ruban-24/agentpod/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/agentpod.svg" alt="license"></a>
     <a href="https://www.npmjs.com/package/agentpod"><img src="https://img.shields.io/node/v/agentpod.svg" alt="node version"></a>
+    <a href="https://github.com/ruban-24/agentpod"><img src="https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript&logoColor=white" alt="TypeScript"></a>
   </p>
 </p>
 
