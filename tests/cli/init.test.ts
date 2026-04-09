@@ -3,7 +3,6 @@ import { access, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { initCommand } from '../../src/cli/commands/init.js';
 import { createTestRepo, type TestRepo } from '../helpers/test-repo.js';
-import type { InitResult } from '../../src/cli/commands/init.js';
 
 describe('initCommand', () => {
   let repo: TestRepo;
