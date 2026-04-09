@@ -80,6 +80,7 @@ export class ServerManager {
       env: { ...process.env, ...env },
       detached: true,
       stdio: 'ignore',
+      reject: false,
     });
 
     subprocess.unref();

@@ -1,5 +1,5 @@
 {
-  "name": "agentpod",
+  "name": "@ruban24/agentpod",
   "version": "0.1.0",
   "description": "A CLI runtime for running parallel AI coding tasks safely inside real repos",
   "type": "module",

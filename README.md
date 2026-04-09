@@ -8,9 +8,9 @@
   </p>
   <p align="center">
     <a href="https://github.com/ruban-24/agentpod/actions"><img src="https://github.com/ruban-24/agentpod/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-    <a href="https://www.npmjs.com/package/agentpod"><img src="https://img.shields.io/npm/v/agentpod.svg" alt="npm version"></a>
-    <a href="https://github.com/ruban-24/agentpod/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/agentpod.svg" alt="license"></a>
-    <a href="https://www.npmjs.com/package/agentpod"><img src="https://img.shields.io/node/v/agentpod.svg" alt="node version"></a>
+    <a href="https://www.npmjs.com/package/@ruban24/agentpod"><img src="https://img.shields.io/npm/v/@ruban24/agentpod.svg" alt="npm version"></a>
+    <a href="https://github.com/ruban-24/agentpod/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/@ruban24/agentpod.svg" alt="license"></a>
+    <a href="https://www.npmjs.com/package/@ruban24/agentpod"><img src="https://img.shields.io/node/v/@ruban24/agentpod.svg" alt="node version"></a>
     <a href="https://github.com/ruban-24/agentpod"><img src="https://img.shields.io/badge/TypeScript-blue?logo=typescript&logoColor=white" alt="TypeScript"></a>
   </p>
 </p>
@@ -57,7 +57,7 @@ That's the whole model. You run one command. Your agent does the rest. You check
 ## Get Started
 
 ```bash
-npm install -g agentpod
+npm install -g @ruban24/agentpod
 cd your-project
 agentpod init
 ```
