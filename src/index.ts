@@ -18,6 +18,8 @@ import { compareCommand } from './cli/commands/compare.js';
 import { mergeCommand } from './cli/commands/merge.js';
 import { discardCommand } from './cli/commands/discard.js';
 import { cleanCommand } from './cli/commands/clean.js';
+import { taskStartCommand } from './cli/commands/task-start.js';
+import { taskStopCommand } from './cli/commands/task-stop.js';
 import { formatOutput, humanOutput } from './cli/output.js';
 import {
   formatListHuman,
@@ -33,6 +35,8 @@ import {
   formatCleanHuman,
   formatRunHuman,
   formatTaskExecHuman,
+  formatTaskStartHuman,
+  formatTaskStopHuman,
   formatErrorHuman,
 } from './cli/format/human.js';
 import { EXIT_CODES } from './constants.js';
@@ -184,6 +188,38 @@ taskCmd
       console.log(opts.human ? humanOutput(formatTaskExecHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.AGENT_FAILED);
+    }
+  });
+
+taskCmd
+  .command('start <id>')
+  .description('Start the configured dev server in a task worktree')
+  .option('--human', 'Human-friendly output', false)
+  .action(async (id, opts) => {
+    try {
+      isHumanMode = opts.human;
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await taskStartCommand(root, id);
+      console.log(opts.human ? humanOutput(formatTaskStartHuman(result)) : formatOutput(result, false));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
+  });
+
+taskCmd
+  .command('stop <id>')
+  .description('Stop the dev server running in a task worktree')
+  .option('--human', 'Human-friendly output', false)
+  .action(async (id, opts) => {
+    try {
+      isHumanMode = opts.human;
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await taskStopCommand(root, id);
+      console.log(opts.human ? humanOutput(formatTaskStopHuman(result)) : formatOutput(result, false));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 

@@ -41,6 +41,9 @@ verify:  ["npm test", "npm run lint"]
 copy:    [".env"]              # Files copied into each worktree
 symlink: ["node_modules"]      # Shared directories symlinked
 setup:   ["npm install"]       # Runs after workspace creation
+run:                           # Dev server for each worktree
+  cmd: "npm run dev"
+  port_env: PORT
 ```
 
 ## Core Workflows
@@ -162,6 +165,26 @@ agentpod clean
 
 Run `clean` after every merge/discard cycle.
 
+### 7. Dev Server Per Task
+
+Start a dev server in each worktree to visually test approaches.
+
+```bash
+# Config already has run field — start servers
+agentpod task start <id1>
+agentpod task start <id2>
+
+# Check which URLs to test
+agentpod task status <id1>   # shows port and url
+agentpod task status <id2>
+
+# Test, compare, then stop servers
+agentpod task stop <id1>
+agentpod task stop <id2>
+```
+
+For multi-service apps (frontend + backend), create separate tasks and read each task's URL from `task status`.
+
 ## Quick Reference
 
 | Command | Purpose |
@@ -169,6 +192,8 @@ Run `clean` after every merge/discard cycle.
 | `agentpod init [--verify <cmds...>]` | Initialize in current repo |
 | `agentpod task create --prompt <text>` | Create isolated task with its own worktree |
 | `agentpod task exec <id> --cmd <cmd> [--wait]` | Run command in task worktree |
+| `agentpod task start <id>` | Start dev server in task worktree |
+| `agentpod task stop <id>` | Stop dev server in task worktree |
 | `agentpod task status <id>` | Get task details |
 | `agentpod run --prompt <text> --cmd <cmd> [--wait]` | Create + execute shortcut |
 | `agentpod list` | List all tasks |
@@ -214,3 +239,4 @@ pending -> provisioning -> ready -> running -> verifying -> completed -> merged
 | Skipping `compare` with multiple tasks | Compare reveals the best approach — don't guess |
 | Forgetting to clean up | Run `agentpod clean` after merge/discard cycles |
 | Using `--human` in agent workflows | Default JSON output is designed for agents — use it |
+| Starting servers you don't need | Only `task start` when you need to test the running app |
