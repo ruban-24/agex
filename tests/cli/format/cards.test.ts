@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { card, sectionHeader, summaryLine, nextAction } from '../../../src/cli/format/cards.js';
+import { card, cardColorForStatus, sectionHeader, summaryLine, nextAction } from '../../../src/cli/format/cards.js';
 import { stripAnsi } from '../../../src/cli/format/colors.js';
 
 describe('card', () => {
@@ -49,6 +49,32 @@ describe('summaryLine', () => {
     expect(plain).toContain('3 completed');
     expect(plain).not.toContain('running');
     expect(plain).not.toContain('failed');
+  });
+});
+
+describe('cardColorForStatus', () => {
+  it('returns green for completed', () => {
+    expect(cardColorForStatus('completed')).toBe('green');
+  });
+
+  it('returns red for failed', () => {
+    expect(cardColorForStatus('failed')).toBe('red');
+  });
+
+  it('returns yellow for running', () => {
+    expect(cardColorForStatus('running')).toBe('yellow');
+  });
+
+  it('returns purple for merged', () => {
+    expect(cardColorForStatus('merged')).toBe('purple');
+  });
+
+  it('returns blue for ready', () => {
+    expect(cardColorForStatus('ready')).toBe('blue');
+  });
+
+  it('returns dim for discarded', () => {
+    expect(cardColorForStatus('discarded')).toBe('dim');
   });
 });
 

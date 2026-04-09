@@ -1,7 +1,7 @@
 import { green, red, yellow, blue, purple, dim } from './colors.js';
 import type { TaskStatus } from '../../types.js';
 
-type CardColor = 'green' | 'red' | 'yellow' | 'blue' | 'purple' | 'dim';
+export type CardColor = 'green' | 'red' | 'yellow' | 'blue' | 'purple' | 'dim';
 
 const COLOR_FN: Record<CardColor, (s: string) => string> = {
   green, red, yellow, blue, purple, dim,
