@@ -234,13 +234,15 @@ export function formatVerifyHuman(data: { id: string; checks: VerificationCheck[
 
 // --- Compare ---
 
-export function formatCompareHuman(data: { tasks: Array<{ id: string; prompt: string; status: string; checks_passed?: number; checks_total?: number; files_changed: number }> }): string {
+export function formatCompareHuman(data: { tasks: Array<{ id: string; prompt: string; status: string; duration_s?: number; checks_passed?: number; checks_total?: number; files_changed: number; insertions?: number; deletions?: number }> }): string {
   const lines: string[] = [];
 
-  const headers = ['ID', 'Status', 'Checks', 'Changes', 'Prompt'];
+  const headers = ['ID', 'Status', 'Checks', 'Changes', 'Duration', 'Prompt'];
   const rows = data.tasks.map((t) => {
     const checksText = t.checks_total != null ? `${t.checks_passed}/${t.checks_total}` : '-';
-    return [t.id, t.status, checksText, String(t.files_changed), t.prompt.slice(0, 30)];
+    const changesText = `+${t.insertions ?? 0} -${t.deletions ?? 0}`;
+    const durationText = t.duration_s != null ? formatDuration(t.duration_s) : '-';
+    return [t.id, t.status, checksText, changesText, durationText, t.prompt.slice(0, 30)];
   });
 
   const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)));
@@ -256,8 +258,9 @@ export function formatCompareHuman(data: { tasks: Array<{ id: string; prompt: st
     const status = statusColor(row[1] as TaskStatus, pad(row[1], widths[1]));
     const checks = row[2] === '-' ? dim(pad(row[2], widths[2])) : pad(row[2], widths[2]);
     const changes = dim(pad(row[3], widths[3]));
-    const prompt = row[4];
-    lines.push(`  ${id}  ${status}  ${checks}  ${changes}  ${prompt}`);
+    const duration = dim(pad(row[4], widths[4]));
+    const prompt = row[5];
+    lines.push(`  ${id}  ${status}  ${checks}  ${changes}  ${duration}  ${prompt}`);
   }
 
   lines.push('  ' + sep);

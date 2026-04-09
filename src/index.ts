@@ -1,5 +1,7 @@
 import { Command } from 'commander';
-import { resolve } from 'node:path';
+import { accessSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { execSync } from 'node:child_process';
 import { initCommand } from './cli/commands/init.js';
 import { taskCreateCommand } from './cli/commands/task-create.js';
 import { taskStatusCommand } from './cli/commands/task-status.js';
@@ -43,7 +45,31 @@ program
   .version('0.1.0');
 
 function getRepoRoot(): string {
-  return resolve(process.cwd());
+  const cwd = resolve(process.cwd());
+  try {
+    execSync('git rev-parse --git-dir', { cwd, stdio: 'ignore' });
+  } catch {
+    console.error(
+      isHumanMode
+        ? humanOutput(formatErrorHuman('Not a git repository. Run this command inside a git repo.'))
+        : JSON.stringify({ error: 'Not a git repository' })
+    );
+    process.exit(EXIT_CODES.INVALID_ARGS);
+  }
+  return cwd;
+}
+
+function requireInit(repoRoot: string): void {
+  try {
+    accessSync(join(repoRoot, '.agentpod'));
+  } catch {
+    console.error(
+      isHumanMode
+        ? humanOutput(formatErrorHuman('agentpod not initialized. Run: agentpod init'))
+        : JSON.stringify({ error: 'agentpod not initialized. Run: agentpod init' })
+    );
+    process.exit(EXIT_CODES.WORKSPACE_ERROR);
+  }
 }
 
 function handleError(err: unknown, exitCode: number = EXIT_CODES.INVALID_ARGS): never {
@@ -82,7 +108,9 @@ taskCmd
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await taskCreateCommand(getRepoRoot(), {
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await taskCreateCommand(root, {
         prompt: opts.prompt,
         cmd: opts.cmd,
       });
@@ -99,10 +127,12 @@ taskCmd
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await taskStatusCommand(getRepoRoot(), id);
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await taskStatusCommand(root, id);
       if (opts.human) {
         let logContent = '';
-        try { logContent = await logCommand(getRepoRoot(), id); } catch {}
+        try { logContent = await logCommand(root, id); } catch {}
         console.log(humanOutput(formatStatusHuman(result, logContent)));
       } else {
         console.log(formatOutput(result, false));
@@ -121,7 +151,9 @@ taskCmd
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await taskExecCommand(getRepoRoot(), id, {
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await taskExecCommand(root, id, {
         cmd: opts.cmd,
         wait: opts.wait,
       });
@@ -141,7 +173,9 @@ program
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await runCommand(getRepoRoot(), {
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await runCommand(root, {
         prompt: opts.prompt,
         cmd: opts.cmd,
         wait: opts.wait,
@@ -159,7 +193,9 @@ program
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await listCommand(getRepoRoot());
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await listCommand(root);
       console.log(opts.human ? humanOutput(formatListHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
@@ -171,7 +207,9 @@ program
   .description('Show captured agent output for a task')
   .action(async (id) => {
     try {
-      const log = await logCommand(getRepoRoot(), id);
+      const root = getRepoRoot();
+      requireInit(root);
+      const log = await logCommand(root, id);
       console.log(log);
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
@@ -185,7 +223,9 @@ program
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await summaryCommand(getRepoRoot());
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await summaryCommand(root);
       console.log(opts.human ? humanOutput(formatSummaryHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
@@ -199,7 +239,9 @@ program
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await verifyCommand(getRepoRoot(), id);
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await verifyCommand(root, id);
       console.log(opts.human ? humanOutput(formatVerifyHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.VERIFICATION_FAILED);
@@ -213,7 +255,9 @@ program
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await diffCommand(getRepoRoot(), id);
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await diffCommand(root, id);
       console.log(opts.human ? humanOutput(formatDiffHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
@@ -227,7 +271,9 @@ program
   .action(async (ids, opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await compareCommand(getRepoRoot(), ids);
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await compareCommand(root, ids);
       console.log(opts.human ? humanOutput(formatCompareHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
@@ -241,7 +287,9 @@ program
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await mergeCommand(getRepoRoot(), id);
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await mergeCommand(root, id);
       if (!result.merged) {
         if (isHumanMode) {
           console.error(humanOutput(formatErrorHuman(`Merge conflict on ${id}`)));
@@ -263,7 +311,9 @@ program
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await discardCommand(getRepoRoot(), id);
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await discardCommand(root, id);
       console.log(opts.human ? humanOutput(formatDiscardHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
@@ -277,7 +327,9 @@ program
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
-      const result = await cleanCommand(getRepoRoot());
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await cleanCommand(root);
       console.log(opts.human ? humanOutput(formatCleanHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);

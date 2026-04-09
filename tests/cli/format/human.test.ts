@@ -173,14 +173,16 @@ describe('formatCompareHuman', () => {
   it('renders a colored table with summary footer', () => {
     const data = {
       tasks: [
-        { id: 'aaa', prompt: 'Fix bug', status: 'completed', checks_passed: 3, checks_total: 3, files_changed: 2 },
-        { id: 'bbb', prompt: 'Refactor', status: 'failed', checks_passed: 1, checks_total: 3, files_changed: 4 },
+        { id: 'aaa', prompt: 'Fix bug', status: 'completed', duration_s: 45, checks_passed: 3, checks_total: 3, files_changed: 2, insertions: 42, deletions: 8 },
+        { id: 'bbb', prompt: 'Refactor', status: 'failed', duration_s: 23, checks_passed: 1, checks_total: 3, files_changed: 4, insertions: 15, deletions: 2 },
       ],
     };
     const result = stripAnsi(formatCompareHuman(data));
     expect(result).toContain('aaa');
     expect(result).toContain('bbb');
     expect(result).toContain('2 tasks');
+    expect(result).toContain('Duration');
+    expect(result).toContain('45s');
   });
 });
 
