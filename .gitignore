@@ -2,4 +2,3 @@ node_modules/
 dist/
 .agentpod/
 *.tsbuildinfo
-.worktrees/
