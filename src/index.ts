@@ -119,7 +119,8 @@ program
         result = await interactiveInit(repoRoot);
       }
 
-      console.log(opts.human ? humanOutput(formatInitHuman(result)) : formatOutput(result, false));
+      const useHuman = opts.human || !isNonInteractive;
+      console.log(useHuman ? humanOutput(formatInitHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }

@@ -199,7 +199,8 @@ describe('action formatters', () => {
     expect(result).toContain('Initialized');
     expect(result).toContain('.agentpod/config.yml');
     expect(result).toContain('.claude/skills/agentpod/SKILL.md');
-    expect(result).toContain('start your agent');
+    expect(result).toContain('Try:');
+    expect(result).toContain('agentpod');
   });
 
   it('formatInitHuman shows minimal output with no files', () => {
@@ -211,6 +212,7 @@ describe('action formatters', () => {
     }));
     expect(result).toContain('Initialized');
     expect(result).not.toContain('Created:');
+    expect(result).toContain('start your agent');
   });
 
   it('formatTaskCreateHuman shows task card', () => {

@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { rmSync } from 'fs';
+import { rmSync, chmodSync } from 'fs';
 
 rmSync('dist', { recursive: true, force: true });
 
@@ -14,3 +14,6 @@ await build({
   banner: { js: '#!/usr/bin/env node' },
   packages: 'external',
 });
+
+chmodSync('dist/index.js', 0o755);
+chmodSync('dist/mcp/server.js', 0o755);

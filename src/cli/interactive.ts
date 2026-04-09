@@ -1,5 +1,6 @@
 import { createInterface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
+import { dim, green, blue, bold } from './format/colors.js';
 
 export interface PromptIO {
   input: Readable;
@@ -17,43 +18,132 @@ const defaultIO = (): PromptIO => ({
 });
 
 /**
- * Ask a yes/no (optionally edit) confirmation question.
- * - y or empty → 'yes'
- * - n → 'no'
- * - e/edit (when allowEdit) → 'edit'
- * - e/edit (when !allowEdit) → 'yes'
+ * Raw-mode key handler shared by singleSelect and multiSelect.
+ * Calls onKey(ch) for each non-escape character, and onArrow('up'|'down') for arrows.
+ */
+function rawKeyLoop(
+  input: Readable,
+  onArrow: (dir: 'up' | 'down') => void,
+  onKey: (ch: string) => boolean, // return true to stop listening
+): void {
+  const isRawCapable = 'setRawMode' in input && typeof (input as NodeJS.ReadStream).setRawMode === 'function';
+  if (isRawCapable) {
+    (input as NodeJS.ReadStream).setRawMode(true);
+  }
+  input.resume();
+
+  let escBuffer = '';
+
+  const handleData = (data: Buffer) => {
+    const str = data.toString();
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+
+      if (escBuffer.length > 0) {
+        escBuffer += ch;
+        const finalChar = escBuffer[escBuffer.length - 1];
+        if (escBuffer.length >= 3 && escBuffer[1] === '[' && /[A-Za-z]/.test(finalChar)) {
+          if (finalChar === 'A') onArrow('up');
+          else if (finalChar === 'B') onArrow('down');
+          escBuffer = '';
+        }
+        continue;
+      }
+
+      if (ch === '\x1b') {
+        escBuffer = ch;
+        continue;
+      }
+
+      const stop = onKey(ch);
+      if (stop) {
+        input.removeListener('data', handleData);
+        if (isRawCapable) {
+          (input as NodeJS.ReadStream).setRawMode(false);
+        }
+        return;
+      }
+    }
+  };
+
+  input.on('data', handleData);
+}
+
+/**
+ * Reusable ANSI re-render: clears `lineCount` lines and moves cursor back up.
+ */
+function clearLines(output: Writable, lineCount: number) {
+  output.write(`\x1b[${lineCount}A`);
+  for (let i = 0; i < lineCount; i++) {
+    output.write('\x1b[2K');
+    if (i < lineCount - 1) output.write('\n');
+  }
+  output.write(`\x1b[${lineCount - 1}A`);
+}
+
+/**
+ * Single-select prompt — user picks one option with arrow keys + space/enter.
+ * Used for Yes / No / Edit confirmations.
+ */
+export async function singleSelect<T>(
+  message: string,
+  options: SelectOption<T>[],
+  io?: PromptIO,
+): Promise<T> {
+  const { input, output } = io ?? defaultIO();
+  let cursor = 0;
+  let hasRendered = false;
+
+  function render() {
+    const totalLines = 1 + options.length; // message + options
+    if (hasRendered) clearLines(output, totalLines);
+
+    const items = options.map((opt, i) => {
+      const radio = i === cursor ? green('\u25cf') : dim('\u25cb');
+      const label = i === cursor ? bold(opt.label) : opt.label;
+      return `    ${radio} ${label}`;
+    });
+    output.write(`  ${message}\n${items.join('\n')}\n`);
+    hasRendered = true;
+  }
+
+  render();
+
+  return new Promise<T>((resolve) => {
+    rawKeyLoop(
+      input,
+      (dir) => {
+        if (dir === 'up') cursor = cursor > 0 ? cursor - 1 : options.length - 1;
+        else cursor = cursor < options.length - 1 ? cursor + 1 : 0;
+        render();
+      },
+      (ch) => {
+        if (ch === ' ' || ch === '\r' || ch === '\n') {
+          resolve(options[cursor].value);
+          return true;
+        }
+        return false;
+      },
+    );
+  });
+}
+
+/**
+ * Ask a yes/no (optionally edit) confirmation via single-select.
  */
 export async function confirm(
   message: string,
   options: { allowEdit?: boolean } = {},
   io?: PromptIO,
 ): Promise<'yes' | 'no' | 'edit'> {
-  const { input, output } = io ?? defaultIO();
-  const suffix = options.allowEdit ? '(y/n/edit)' : '(y/n)';
-
-  const rl = createInterface({ input, output, terminal: false });
-
-  return new Promise<'yes' | 'no' | 'edit'>((resolve) => {
-    output.write(`${message} ${suffix} `);
-
-    rl.once('line', (line) => {
-      rl.close();
-      const answer = line.trim().toLowerCase();
-
-      if (answer === 'n' || answer === 'no') {
-        resolve('no');
-        return;
-      }
-
-      if (options.allowEdit && (answer === 'e' || answer === 'edit')) {
-        resolve('edit');
-        return;
-      }
-
-      // y, empty, or anything else (including 'e' when !allowEdit)
-      resolve('yes');
-    });
-  });
+  const choices: SelectOption<'yes' | 'no' | 'edit'>[] = [
+    { label: 'Yes', value: 'yes' },
+    { label: 'No', value: 'no' },
+  ];
+  if (options.allowEdit) {
+    choices.push({ label: 'Edit', value: 'edit' });
+  }
+  return singleSelect(message, choices, io);
 }
 
 /**
@@ -70,9 +160,9 @@ export async function editList(
 
   return new Promise<string[]>((resolve) => {
     if (current.length > 0) {
-      output.write(`Current: ${current.join(', ')}\n`);
+      output.write(`  ${dim('Current:')} ${current.join(', ')}\n`);
     }
-    output.write('Enter commands (comma-separated), or press enter to keep current: ');
+    output.write(`  ${dim('Enter commands (comma-separated), or press enter to keep current:')} `);
 
     rl.once('line', (line) => {
       rl.close();
@@ -94,6 +184,31 @@ export async function editList(
 }
 
 /**
+ * Prompt user to edit a single field value.
+ * Empty input keeps the current value. Returns undefined if current is undefined and input is empty.
+ */
+export async function editField(
+  label: string,
+  current: string | undefined,
+  io?: PromptIO,
+): Promise<string | undefined> {
+  const { input, output } = io ?? defaultIO();
+
+  const rl = createInterface({ input, output, terminal: false });
+
+  return new Promise<string | undefined>((resolve) => {
+    const hint = current ? dim(` (${current})`) : '';
+    output.write(`  ${label}${hint}: `);
+
+    rl.once('line', (line) => {
+      rl.close();
+      const trimmed = line.trim();
+      resolve(trimmed || current);
+    });
+  });
+}
+
+/**
  * Interactive multi-select with checkboxes.
  * Uses raw mode on real terminals; processes escape sequences on PassThrough streams.
  */
@@ -110,20 +225,17 @@ export async function multiSelect<T>(
   let hasRendered = false;
 
   function render() {
-    if (hasRendered) {
-      // Move cursor up and clear each line to overwrite previous render
-      output.write(`\x1b[${options.length}A`);
-      for (let i = 0; i < options.length; i++) {
-        output.write('\x1b[2K');
-        if (i < options.length - 1) output.write('\n');
-      }
-      output.write(`\x1b[${options.length - 1}A`);
-    }
+    const totalLines = options.length + 1; // options + hint line
+    if (hasRendered) clearLines(output, totalLines);
+
     const lines = options.map((opt, i) => {
-      const marker = selected.has(i) ? '[x]' : '[ ]';
-      const pointer = i === cursor ? '>' : ' ';
-      return `${pointer} ${marker} ${opt.label}`;
+      const check = selected.has(i) ? green('\u2713') : ' ';
+      const marker = `[${check}]`;
+      const pointer = i === cursor ? blue('>') : ' ';
+      const label = i === cursor ? bold(opt.label) : opt.label;
+      return `${pointer} ${marker} ${label}`;
     });
+    lines.push(dim('  space = toggle, enter = confirm'));
     output.write(lines.join('\n') + '\n');
     hasRendered = true;
   }
@@ -131,67 +243,26 @@ export async function multiSelect<T>(
   render();
 
   return new Promise<T[]>((resolve) => {
-    const isRawCapable = 'setRawMode' in input && typeof (input as NodeJS.ReadStream).setRawMode === 'function';
-
-    if (isRawCapable) {
-      (input as NodeJS.ReadStream).setRawMode(true);
-    }
-
-    // Resume in case a prior readline.close() paused the stream
-    input.resume();
-
-    let escBuffer = '';
-
-    const handleData = (data: Buffer) => {
-      const str = data.toString();
-
-      for (let i = 0; i < str.length; i++) {
-        const ch = str[i];
-
-        if (escBuffer.length > 0) {
-          escBuffer += ch;
-          // CSI sequences terminate with a letter
-          const finalChar = escBuffer[escBuffer.length - 1];
-          if (escBuffer.length >= 3 && escBuffer[1] === '[' && /[A-Za-z]/.test(finalChar)) {
-            if (finalChar === 'A') {
-              cursor = cursor > 0 ? cursor - 1 : options.length - 1;
-              render();
-            } else if (finalChar === 'B') {
-              cursor = cursor < options.length - 1 ? cursor + 1 : 0;
-              render();
-            }
-            // Unrecognized sequences are silently ignored
-            escBuffer = '';
-          }
-          continue;
-        }
-
-        if (ch === '\x1b') {
-          escBuffer = ch;
-          continue;
-        }
-
+    rawKeyLoop(
+      input,
+      (dir) => {
+        if (dir === 'up') cursor = cursor > 0 ? cursor - 1 : options.length - 1;
+        else cursor = cursor < options.length - 1 ? cursor + 1 : 0;
+        render();
+      },
+      (ch) => {
         if (ch === ' ') {
-          if (selected.has(cursor)) {
-            selected.delete(cursor);
-          } else {
-            selected.add(cursor);
-          }
+          if (selected.has(cursor)) selected.delete(cursor);
+          else selected.add(cursor);
           render();
-          continue;
+          return false;
         }
-
         if (ch === '\r' || ch === '\n') {
-          input.removeListener('data', handleData);
-          if (isRawCapable) {
-            (input as NodeJS.ReadStream).setRawMode(false);
-          }
           resolve(options.filter((_, idx) => selected.has(idx)).map((opt) => opt.value));
-          return;
+          return true;
         }
-      }
-    };
-
-    input.on('data', handleData);
+        return false;
+      },
+    );
   });
 }

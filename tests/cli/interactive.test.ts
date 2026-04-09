@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PassThrough } from 'node:stream';
-import { confirm, editList, multiSelect } from '../../src/cli/interactive.js';
+import { confirm, editField, editList, multiSelect, singleSelect } from '../../src/cli/interactive.js';
 import type { PromptIO, SelectOption } from '../../src/cli/interactive.js';
 
 function createMockIO(): PromptIO & { input: PassThrough; output: PassThrough; getOutput: () => string } {
@@ -11,39 +11,68 @@ function createMockIO(): PromptIO & { input: PassThrough; output: PassThrough; g
   return { input, output, getOutput: () => outputData };
 }
 
+describe('singleSelect', () => {
+  const options: SelectOption<string>[] = [
+    { label: 'Alpha', value: 'a' },
+    { label: 'Beta', value: 'b' },
+    { label: 'Gamma', value: 'c' },
+  ];
+
+  it('selects first item on enter', async () => {
+    const io = createMockIO();
+    const promise = singleSelect('Pick one:', options, io);
+    io.input.write('\r');
+    expect(await promise).toBe('a');
+  });
+
+  it('selects first item on space', async () => {
+    const io = createMockIO();
+    const promise = singleSelect('Pick one:', options, io);
+    io.input.write(' ');
+    expect(await promise).toBe('a');
+  });
+
+  it('navigates down and selects', async () => {
+    const io = createMockIO();
+    const promise = singleSelect('Pick one:', options, io);
+    io.input.write('\x1b[B\r'); // arrow down + enter
+    expect(await promise).toBe('b');
+  });
+
+  it('wraps around from bottom to top', async () => {
+    const io = createMockIO();
+    const promise = singleSelect('Pick one:', options, io);
+    io.input.write('\x1b[B\x1b[B\x1b[B\r'); // 3x down wraps to first
+    expect(await promise).toBe('a');
+  });
+});
+
 describe('confirm', () => {
-  it('returns yes on "y" input', async () => {
+  it('returns yes when enter pressed (first option)', async () => {
     const io = createMockIO();
     const promise = confirm('Continue?', {}, io);
-    io.input.write('y\n');
+    io.input.write('\r');
     expect(await promise).toBe('yes');
   });
 
-  it('returns yes on empty input (default)', async () => {
+  it('returns no when arrow down + enter', async () => {
     const io = createMockIO();
     const promise = confirm('Continue?', {}, io);
-    io.input.write('\n');
-    expect(await promise).toBe('yes');
-  });
-
-  it('returns no on "n" input', async () => {
-    const io = createMockIO();
-    const promise = confirm('Continue?', {}, io);
-    io.input.write('n\n');
+    io.input.write('\x1b[B\r'); // down to No
     expect(await promise).toBe('no');
   });
 
-  it('returns edit on "e" when allowEdit is true', async () => {
+  it('returns edit when allowEdit and arrow to Edit', async () => {
     const io = createMockIO();
     const promise = confirm('Continue?', { allowEdit: true }, io);
-    io.input.write('e\n');
+    io.input.write('\x1b[B\x1b[B\r'); // down 2x to Edit
     expect(await promise).toBe('edit');
   });
 
-  it('treats "e" as yes when allowEdit is false', async () => {
+  it('has no edit option when allowEdit is false', async () => {
     const io = createMockIO();
     const promise = confirm('Continue?', {}, io);
-    io.input.write('e\n');
+    io.input.write('\x1b[B\x1b[B\r'); // down 2x wraps to Yes (only 2 options)
     expect(await promise).toBe('yes');
   });
 });
@@ -68,6 +97,29 @@ describe('editList', () => {
     const promise = editList([], io);
     io.input.write('  npm test ,,, npm run lint  \n');
     expect(await promise).toEqual(['npm test', 'npm run lint']);
+  });
+});
+
+describe('editField', () => {
+  it('returns user input when provided', async () => {
+    const io = createMockIO();
+    const promise = editField('cmd', 'npm run dev', io);
+    io.input.write('yarn dev\n');
+    expect(await promise).toBe('yarn dev');
+  });
+
+  it('returns current value on empty input', async () => {
+    const io = createMockIO();
+    const promise = editField('cmd', 'npm run dev', io);
+    io.input.write('\n');
+    expect(await promise).toBe('npm run dev');
+  });
+
+  it('returns undefined when no current and empty input', async () => {
+    const io = createMockIO();
+    const promise = editField('port_env', undefined, io);
+    io.input.write('\n');
+    expect(await promise).toBeUndefined();
   });
 });
 

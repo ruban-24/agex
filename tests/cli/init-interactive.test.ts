@@ -4,6 +4,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { interactiveInit } from '../../src/cli/commands/init-interactive.js';
 import type { PromptIO } from '../../src/cli/interactive.js';
+import { stripAnsi } from '../../src/cli/format/colors.js';
 import { createTestRepo, type TestRepo } from '../helpers/test-repo.js';
 
 function createMockIO(): PromptIO & { input: PassThrough; output: PassThrough; getOutput: () => string } {
@@ -13,6 +14,11 @@ function createMockIO(): PromptIO & { input: PassThrough; output: PassThrough; g
   output.on('data', (chunk: Buffer) => { outputData += chunk.toString(); });
   return { input, output, getOutput: () => outputData };
 }
+
+// Key sequences for singleSelect-based confirm
+const YES = '\r';           // enter on first option (Yes)
+const NO = '\x1b[B\r';     // arrow down to No + enter
+const EDIT = '\x1b[B\x1b[B\r'; // arrow down 2x to Edit + enter
 
 describe('interactiveInit', () => {
   let repo: TestRepo;
@@ -26,7 +32,6 @@ describe('interactiveInit', () => {
   });
 
   it('detects Node.js project and accepts verify + provisioning + selects agent', async () => {
-    // Set up a Node.js project with package.json
     await writeFile(join(repo.path, 'package.json'), JSON.stringify({
       scripts: { test: 'vitest', lint: 'eslint .' },
       dependencies: { foo: '1.0.0' },
@@ -38,10 +43,10 @@ describe('interactiveInit', () => {
 
     const promise = interactiveInit(repo.path, io);
 
-    // Prompt 1: confirm verify commands (y)
-    setTimeout(() => io.input.write('y\n'), 50);
-    // Prompt 2: confirm provisioning (y)
-    setTimeout(() => io.input.write('y\n'), 100);
+    // Prompt 1: confirm verify commands (Yes)
+    setTimeout(() => io.input.write(YES), 50);
+    // Prompt 2: confirm provisioning (Yes)
+    setTimeout(() => io.input.write(YES), 100);
     // Prompt 3: multi-select agents — space to toggle first (claude-code), enter to confirm
     setTimeout(() => io.input.write(' \r'), 150);
 
@@ -52,8 +57,7 @@ describe('interactiveInit', () => {
     expect(result.agents).toEqual(['claude-code']);
     expect(result.files).toContain('.agentpod/config.yml');
 
-    // Check output text
-    const output = io.getOutput();
+    const output = stripAnsi(io.getOutput());
     expect(output).toContain('Detected project: Node.js (package.json)');
     expect(output).toContain('npm test');
     expect(output).toContain('npm run lint');
@@ -66,7 +70,6 @@ describe('interactiveInit', () => {
   });
 
   it('handles empty project with no markers — editList for verify, no provisioning prompt', async () => {
-    // Empty repo — no package.json, no Makefile, etc.
     const io = createMockIO();
 
     const promise = interactiveInit(repo.path, io);
@@ -82,9 +85,8 @@ describe('interactiveInit', () => {
     expect(result.verify).toEqual(['npm test', 'npm run lint']);
     expect(result.agents).toEqual([]);
 
-    const output = io.getOutput();
+    const output = stripAnsi(io.getOutput());
     expect(output).toContain('No verify commands detected');
-    // Should NOT contain provisioning section (nothing detected, skip silently)
     expect(output).not.toContain('Workspace provisioning');
   });
 
@@ -97,8 +99,8 @@ describe('interactiveInit', () => {
 
     const promise = interactiveInit(repo.path, io);
 
-    // Prompt 1: reject verify commands (n)
-    setTimeout(() => io.input.write('n\n'), 50);
+    // Prompt 1: reject verify commands (No)
+    setTimeout(() => io.input.write(NO), 50);
     // Prompt 2: multi-select agents — enter (select none)
     setTimeout(() => io.input.write('\r'), 100);
 
@@ -118,8 +120,8 @@ describe('interactiveInit', () => {
 
     const promise = interactiveInit(repo.path, io);
 
-    // Prompt 1: choose edit for verify commands
-    setTimeout(() => io.input.write('edit\n'), 50);
+    // Prompt 1: choose Edit for verify commands
+    setTimeout(() => io.input.write(EDIT), 50);
     // Prompt 2: editList — provide new commands
     setTimeout(() => io.input.write('npm test, npm run build\n'), 100);
     // Prompt 3: multi-select agents — enter (select none)
@@ -161,10 +163,10 @@ describe('interactiveInit', () => {
 
     const promise = interactiveInit(repo.path, io);
 
-    // Prompt 1: accept verify (y)
-    setTimeout(() => io.input.write('y\n'), 50);
-    // Prompt 2: reject provisioning (n)
-    setTimeout(() => io.input.write('n\n'), 100);
+    // Prompt 1: accept verify (Yes)
+    setTimeout(() => io.input.write(YES), 50);
+    // Prompt 2: reject provisioning (No)
+    setTimeout(() => io.input.write(NO), 100);
     // Prompt 3: multi-select agents — enter (select none)
     setTimeout(() => io.input.write('\r'), 150);
 
@@ -172,8 +174,6 @@ describe('interactiveInit', () => {
 
     expect(result.created).toBe(true);
     expect(result.verify).toEqual(['npm test']);
-    // config.yml should only have verify, not provisioning
-    // (we can't directly check init options, but verify the result)
     expect(result.files).toContain('.agentpod/config.yml');
   });
 
@@ -188,7 +188,7 @@ describe('interactiveInit', () => {
 
     await promise;
 
-    const output = io.getOutput();
+    const output = stripAnsi(io.getOutput());
     expect(output).toContain('Which agents do you use?');
   });
 
@@ -203,8 +203,8 @@ describe('interactiveInit', () => {
 
     // Prompt 1: confirm verify — no verify detected (no test/lint scripts), editList
     setTimeout(() => io.input.write('\n'), 50);
-    // Prompt 2: confirm run config (y)
-    setTimeout(() => io.input.write('y\n'), 100);
+    // Prompt 2: confirm run config (Yes)
+    setTimeout(() => io.input.write(YES), 100);
     // Prompt 3: multi-select agents — enter (select none)
     setTimeout(() => io.input.write('\r'), 150);
 
@@ -213,7 +213,7 @@ describe('interactiveInit', () => {
     expect(result.created).toBe(true);
     expect(result.run).toEqual({ cmd: 'npm run dev', port_env: 'PORT' });
 
-    const output = io.getOutput();
+    const output = stripAnsi(io.getOutput());
     expect(output).toContain('Dev server');
     expect(output).toContain('npm run dev');
     expect(output).toContain('port_env');
@@ -230,8 +230,8 @@ describe('interactiveInit', () => {
 
     // Prompt 1: editList for verify (no test/lint scripts)
     setTimeout(() => io.input.write('\n'), 50);
-    // Prompt 2: reject run config (n)
-    setTimeout(() => io.input.write('n\n'), 100);
+    // Prompt 2: reject run config (No)
+    setTimeout(() => io.input.write(NO), 100);
     // Prompt 3: multi-select agents — enter (select none)
     setTimeout(() => io.input.write('\r'), 150);
 
@@ -251,8 +251,33 @@ describe('interactiveInit', () => {
 
     await promise;
 
-    const output = io.getOutput();
-    // Should not show "Detected project:" line when nothing detected
+    const output = stripAnsi(io.getOutput());
     expect(output).not.toContain('Detected project:');
+  });
+
+  it('edits run config — cmd and port_env', async () => {
+    await writeFile(join(repo.path, 'package.json'), JSON.stringify({
+      scripts: { dev: 'next dev' },
+    }));
+
+    const io = createMockIO();
+
+    const promise = interactiveInit(repo.path, io);
+
+    // Prompt 1: editList for verify (no test/lint scripts)
+    setTimeout(() => io.input.write('\n'), 50);
+    // Prompt 2: Edit run config
+    setTimeout(() => io.input.write(EDIT), 100);
+    // Prompt 3: edit cmd — change it
+    setTimeout(() => io.input.write('yarn dev\n'), 150);
+    // Prompt 4: edit port_env — keep default (blank enter)
+    setTimeout(() => io.input.write('\n'), 200);
+    // Prompt 5: multi-select agents — enter (select none)
+    setTimeout(() => io.input.write('\r'), 250);
+
+    const result = await promise;
+
+    expect(result.created).toBe(true);
+    expect(result.run).toEqual({ cmd: 'yarn dev', port_env: 'PORT' });
   });
 });

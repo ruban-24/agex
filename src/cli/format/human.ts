@@ -314,14 +314,13 @@ export function formatInitHuman(data: {
     }
   }
 
-  if (data.agents.length > 0) {
-    cardLines.push('');
-    cardLines.push(dim('Try telling your agent:'));
-    cardLines.push(dim('  "Use agentpod to try two different approaches to [your task]"'));
-  }
-
   lines.push(card('green', cardLines));
-  lines.push(nextAction('start your agent and give it a task'));
+
+  if (data.agents.length > 0) {
+    lines.push(dim('  Try: "Use agentpod to try two different approaches to [your task]"'));
+  } else {
+    lines.push(nextAction('start your agent and give it a task'));
+  }
   return lines.join('\n');
 }
 
