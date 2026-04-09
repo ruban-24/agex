@@ -63,6 +63,9 @@ function taskCardLine(task: ServerAwareTask): string {
   }
 
   parts.push(task.prompt);
+  if (task.worktree && !['merged', 'discarded'].includes(task.status)) {
+    parts.push(dim(task.worktree));
+  }
   return parts.join('  ');
 }
 
