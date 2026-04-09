@@ -15,6 +15,8 @@ import {
   formatCleanHuman,
   formatRunHuman,
   formatTaskExecHuman,
+  formatTaskStartHuman,
+  formatTaskStopHuman,
   formatErrorHuman,
 } from '../../../src/cli/format/human.js';
 import type { TaskRecord } from '../../../src/types.js';
@@ -258,6 +260,43 @@ describe('action formatters', () => {
     const result = stripAnsi(formatTaskExecHuman(task));
     expect(result).toContain('running');
     expect(result).toContain('pid: 12345');
+  });
+});
+
+describe('formatTaskStartHuman', () => {
+  it('shows server started with url and pid', () => {
+    const result = stripAnsi(formatTaskStartHuman({
+      id: 'abc123',
+      port: 3100,
+      url: 'http://localhost:3100',
+      server_running: true,
+      server_pid: 12345,
+    }));
+    expect(result).toContain('Server started');
+    expect(result).toContain('http://localhost:3100');
+    expect(result).toContain('12345');
+  });
+
+  it('includes warning when present', () => {
+    const result = stripAnsi(formatTaskStartHuman({
+      id: 'abc123',
+      port: 3100,
+      url: 'http://localhost:3100',
+      server_running: true,
+      server_pid: 12345,
+      warning: '4 servers running — consider stopping idle ones',
+    }));
+    expect(result).toContain('4 servers running');
+  });
+});
+
+describe('formatTaskStopHuman', () => {
+  it('shows server stopped', () => {
+    const result = stripAnsi(formatTaskStopHuman({
+      id: 'abc123',
+      server_running: false,
+    }));
+    expect(result).toContain('Server stopped');
   });
 });
 

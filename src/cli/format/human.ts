@@ -5,6 +5,14 @@ import { formatDuration, formatRelativeTime } from './time.js';
 import { card, cardColorForStatus, sectionHeader, summaryLine, nextAction } from './cards.js';
 import type { TaskRecord, TaskStatus, VerificationCheck } from '../../types.js';
 import type { CommitLogEntry, FileStats } from '../../core/reviewer.js';
+import type { TaskStartResult } from '../commands/task-start.js';
+import type { TaskStopResult } from '../commands/task-stop.js';
+
+interface ServerAwareTask extends TaskRecord {
+  port?: number;
+  url?: string;
+  server_running?: boolean;
+}
 
 // --- Helpers ---
 
@@ -31,7 +39,7 @@ function statusCounts(tasks: TaskRecord[]): Record<string, number> {
   return counts;
 }
 
-function taskCardLine(task: TaskRecord): string {
+function taskCardLine(task: ServerAwareTask): string {
   const sym = statusSymbol(task.status);
   const id = blue(task.id);
   const status = statusColor(task.status, task.status.padEnd(9));
@@ -48,6 +56,10 @@ function taskCardLine(task: TaskRecord): string {
 
   if (task.diff_stats && task.diff_stats.files_changed > 0) {
     parts.push(dim(`${diffStats(task.diff_stats.insertions, task.diff_stats.deletions)} · ${task.diff_stats.files_changed} files`));
+  }
+
+  if (task.server_running) {
+    parts.push(dim(`srv :${task.port}`));
   }
 
   parts.push(task.prompt);
@@ -87,7 +99,7 @@ export function formatListHuman(tasks: TaskRecord[]): string {
 
 // --- Status ---
 
-export function formatStatusHuman(task: TaskRecord, logContent: string): string {
+export function formatStatusHuman(task: ServerAwareTask, logContent: string): string {
   const color = cardColorForStatus(task.status);
   const lines: string[] = [];
 
@@ -105,6 +117,15 @@ export function formatStatusHuman(task: TaskRecord, logContent: string): string 
   if (task.cmd) lines.push(`  ${dim('cmd:')}      ${task.cmd}`);
   lines.push(`  ${dim('created:')}  ${formatRelativeTime(task.created_at)}`);
   if (task.duration_s !== undefined) lines.push(`  ${dim('duration:')} ${formatDuration(task.duration_s)}`);
+
+  // Server section
+  if (task.server_running != null) {
+    if (task.server_running) {
+      lines.push(`  ${dim('server:')}   ${green('▶')} running · http://localhost:${task.port} · pid ${task.server_pid}`);
+    } else if (task.port) {
+      lines.push(`  ${dim('server:')}   ${dim('○')} stopped · port ${task.port} available`);
+    }
+  }
   lines.push('');
 
   // Changes section
@@ -376,6 +397,21 @@ export function formatTaskExecHuman(task: TaskRecord): string {
   const hint = nextActionForStatus(task.id, task.status);
   if (hint) lines.push(nextAction(hint));
   return lines.join('\n');
+}
+
+export function formatTaskStartHuman(data: TaskStartResult): string {
+  const lines: string[] = [];
+  lines.push(card('green', [
+    `${green('▶')} Server started on ${bold(data.url)} (pid ${data.server_pid})`,
+  ]));
+  if (data.warning) {
+    lines.push(`  ${dim('⚠')} ${dim(data.warning)}`);
+  }
+  return lines.join('\n');
+}
+
+export function formatTaskStopHuman(data: TaskStopResult): string {
+  return card('dim', [`${dim('○')} Server stopped`]);
 }
 
 export function formatErrorHuman(message: string): string {

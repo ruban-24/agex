@@ -3,3 +3,4 @@ dist/
 .agentpod/
 *.tsbuildinfo
 .worktrees/
+.superpowers/
