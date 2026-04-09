@@ -1,6 +1,7 @@
 import simpleGit from 'simple-git';
 import { TaskManager } from '../../core/task-manager.js';
 import { Reviewer } from '../../core/reviewer.js';
+import { WorkspaceManager } from '../../core/workspace-manager.js';
 import { worktreePath } from '../../constants.js';
 
 export interface MergeResult {
@@ -8,11 +9,13 @@ export interface MergeResult {
   merged: boolean;
   strategy?: string;
   commit?: string;
+  targetBranch?: string;
 }
 
 export async function mergeCommand(repoRoot: string, taskId: string): Promise<MergeResult> {
   const tm = new TaskManager(repoRoot);
   const reviewer = new Reviewer(repoRoot);
+  const wm = new WorkspaceManager(repoRoot);
   const git = simpleGit(repoRoot);
 
   const task = await tm.getTask(taskId);
@@ -41,9 +44,16 @@ export async function mergeCommand(repoRoot: string, taskId: string): Promise<Me
       // Branch may already be gone
     }
 
+    let targetBranch: string | undefined;
+    try {
+      targetBranch = (await git.raw(['symbolic-ref', '--short', 'HEAD'])).trim();
+    } catch {}
+
     await tm.updateStatus(taskId, 'merged');
-    return { id: taskId, merged: true, strategy: result.strategy, commit: result.commit };
+    return { id: taskId, merged: true, strategy: result.strategy, commit: result.commit, targetBranch };
   } else {
+    // Restore worktree on failure so the task can continue working
+    await wm.reattachWorktree(taskId, task.branch);
     return { id: taskId, merged: false };
   }
 }

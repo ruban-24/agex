@@ -55,4 +55,23 @@ describe('mergeCommand', () => {
     // Verify worktree is removed
     await expect(access(wtPath)).rejects.toThrow();
   });
+
+  it('restores worktree when merge fails due to conflict', async () => {
+    const task = await taskCreateCommand(repo.path, { prompt: 'conflict test' });
+    const wtPath = join(repo.path, '.agentpod', 'worktrees', task.id);
+
+    // Make a change in the worktree on README.md (exists from initial commit)
+    await writeFile(join(wtPath, 'README.md'), '# Modified by task\n');
+    execSync('git add . && git commit -m "task modifies readme"', { cwd: wtPath, stdio: 'ignore' });
+
+    // Make a conflicting change on main
+    await writeFile(join(repo.path, 'README.md'), '# Modified on main\n');
+    execSync('git add . && git commit -m "main modifies readme"', { cwd: repo.path, stdio: 'ignore' });
+
+    const result = await mergeCommand(repo.path, task.id);
+
+    expect(result.merged).toBe(false);
+    // Worktree should be restored
+    await access(wtPath);
+  });
 });
