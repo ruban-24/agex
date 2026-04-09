@@ -119,6 +119,29 @@ describe('WorkspaceManager', () => {
     });
   });
 
+  describe('reattachWorktree', () => {
+    it('attaches a worktree to an existing branch', async () => {
+      const taskId = 'reattach01';
+      const branch = 'agentpod/reattach01';
+
+      // Create worktree (creates branch), then remove worktree only (keep branch)
+      await wm.createWorktree(taskId, branch);
+      const wtPath = join(repo.path, '.agentpod', 'worktrees', taskId);
+      execSync(`git worktree remove --force "${wtPath}"`, { cwd: repo.path, stdio: 'ignore' });
+
+      // Reattach
+      const reattachedPath = await wm.reattachWorktree(taskId, branch);
+      expect(reattachedPath).toBe(wtPath);
+      await access(wtPath);
+    });
+
+    it('throws when branch does not exist', async () => {
+      await expect(
+        wm.reattachWorktree('ghost', 'agentpod/nonexistent')
+      ).rejects.toThrow();
+    });
+  });
+
   describe('runSetupHooks', () => {
     it('runs blocking setup commands in the worktree directory', async () => {
       const { writeFile: wf } = await import('node:fs/promises');

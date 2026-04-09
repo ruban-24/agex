@@ -20,6 +20,13 @@ export class WorkspaceManager {
     return wtPath;
   }
 
+  async reattachWorktree(taskId: string, branch: string): Promise<string> {
+    const git = simpleGit(this.repoRoot);
+    const wtPath = worktreePath(this.repoRoot, taskId);
+    await git.raw(['worktree', 'add', wtPath, branch]);
+    return wtPath;
+  }
+
   async provision(
     taskId: string,
     config: { copy?: string[]; symlink?: string[] }
