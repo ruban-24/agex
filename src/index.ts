@@ -15,6 +15,7 @@ import { mergeCommand } from './cli/commands/merge.js';
 import { discardCommand } from './cli/commands/discard.js';
 import { cleanCommand } from './cli/commands/clean.js';
 import { formatOutput, formatTable } from './cli/output.js';
+import { EXIT_CODES } from './constants.js';
 
 const program = new Command();
 
@@ -27,14 +28,24 @@ function getRepoRoot(): string {
   return resolve(process.cwd());
 }
 
+function handleError(err: unknown, exitCode: number = EXIT_CODES.INVALID_ARGS): never {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(JSON.stringify({ error: message }));
+  process.exit(exitCode);
+}
+
 program
   .command('init')
   .description('Initialize agentpod in the current repository')
   .option('--verify <commands...>', 'Verification commands to run')
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
-    const result = await initCommand(getRepoRoot(), { verify: opts.verify });
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await initCommand(getRepoRoot(), { verify: opts.verify });
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
   });
 
 const taskCmd = program.command('task').description('Task management commands');
@@ -46,11 +57,15 @@ taskCmd
   .option('--cmd <cmd>', 'Command to execute (optional)')
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
-    const result = await taskCreateCommand(getRepoRoot(), {
-      prompt: opts.prompt,
-      cmd: opts.cmd,
-    });
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await taskCreateCommand(getRepoRoot(), {
+        prompt: opts.prompt,
+        cmd: opts.cmd,
+      });
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
   });
 
 taskCmd
@@ -58,8 +73,12 @@ taskCmd
   .description('Get detailed status for a task')
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
-    const result = await taskStatusCommand(getRepoRoot(), id);
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await taskStatusCommand(getRepoRoot(), id);
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
   });
 
 taskCmd
@@ -69,11 +88,15 @@ taskCmd
   .option('--wait', 'Wait for completion', false)
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
-    const result = await taskExecCommand(getRepoRoot(), id, {
-      cmd: opts.cmd,
-      wait: opts.wait,
-    });
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await taskExecCommand(getRepoRoot(), id, {
+        cmd: opts.cmd,
+        wait: opts.wait,
+      });
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.AGENT_FAILED);
+    }
   });
 
 program
@@ -84,12 +107,16 @@ program
   .option('--wait', 'Wait for completion', false)
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
-    const result = await runCommand(getRepoRoot(), {
-      prompt: opts.prompt,
-      cmd: opts.cmd,
-      wait: opts.wait,
-    });
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await runCommand(getRepoRoot(), {
+        prompt: opts.prompt,
+        cmd: opts.cmd,
+        wait: opts.wait,
+      });
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.AGENT_FAILED);
+    }
   });
 
 program
@@ -97,18 +124,22 @@ program
   .description('List all tasks')
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
-    const result = await listCommand(getRepoRoot());
-    if (opts.human) {
-      const headers = ['ID', 'Status', 'Prompt', 'Files Changed'];
-      const rows = result.map((t) => [
-        t.id,
-        t.status,
-        t.prompt.slice(0, 40),
-        String(t.diff_stats?.files_changed ?? '-'),
-      ]);
-      console.log(formatTable(headers, rows));
-    } else {
-      console.log(formatOutput(result, false));
+    try {
+      const result = await listCommand(getRepoRoot());
+      if (opts.human) {
+        const headers = ['ID', 'Status', 'Prompt', 'Files Changed'];
+        const rows = result.map((t) => [
+          t.id,
+          t.status,
+          t.prompt.slice(0, 40),
+          String(t.diff_stats?.files_changed ?? '-'),
+        ]);
+        console.log(formatTable(headers, rows));
+      } else {
+        console.log(formatOutput(result, false));
+      }
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -116,8 +147,12 @@ program
   .command('log <id>')
   .description('Show captured agent output for a task')
   .action(async (id) => {
-    const log = await logCommand(getRepoRoot(), id);
-    console.log(log);
+    try {
+      const log = await logCommand(getRepoRoot(), id);
+      console.log(log);
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
   });
 
 program
@@ -125,8 +160,12 @@ program
   .description('Summary of all tasks')
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
-    const result = await summaryCommand(getRepoRoot());
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await summaryCommand(getRepoRoot());
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
   });
 
 program
@@ -134,8 +173,12 @@ program
   .description('Run verification checks against a task')
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
-    const result = await verifyCommand(getRepoRoot(), id);
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await verifyCommand(getRepoRoot(), id);
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.VERIFICATION_FAILED);
+    }
   });
 
 program
@@ -143,8 +186,12 @@ program
   .description('Show diff of changes in a task')
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
-    const result = await diffCommand(getRepoRoot(), id);
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await diffCommand(getRepoRoot(), id);
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
   });
 
 program
@@ -152,8 +199,24 @@ program
   .description('Compare multiple tasks')
   .option('--human', 'Human-friendly output', false)
   .action(async (ids, opts) => {
-    const result = await compareCommand(getRepoRoot(), ids);
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await compareCommand(getRepoRoot(), ids);
+      if (opts.human) {
+        const headers = ['ID', 'Status', 'Checks', 'Files Changed', 'Prompt'];
+        const rows = result.tasks.map((t) => [
+          t.id,
+          t.status,
+          t.checks_total != null ? `${t.checks_passed}/${t.checks_total}` : '-',
+          String(t.files_changed),
+          t.prompt.slice(0, 30),
+        ]);
+        console.log(formatTable(headers, rows));
+      } else {
+        console.log(formatOutput(result, false));
+      }
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
   });
 
 program
@@ -161,8 +224,16 @@ program
   .description('Merge a task branch into the current branch')
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
-    const result = await mergeCommand(getRepoRoot(), id);
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await mergeCommand(getRepoRoot(), id);
+      if (!result.merged) {
+        console.error(JSON.stringify({ error: 'Merge conflict', id }));
+        process.exit(EXIT_CODES.MERGE_CONFLICT);
+      }
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.MERGE_CONFLICT);
+    }
   });
 
 program
@@ -170,8 +241,12 @@ program
   .description('Discard a task (remove worktree and branch)')
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
-    const result = await discardCommand(getRepoRoot(), id);
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await discardCommand(getRepoRoot(), id);
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
   });
 
 program
@@ -179,8 +254,12 @@ program
   .description('Clean up all completed/discarded task worktrees')
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
-    const result = await cleanCommand(getRepoRoot());
-    console.log(formatOutput(result, opts.human));
+    try {
+      const result = await cleanCommand(getRepoRoot());
+      console.log(formatOutput(result, opts.human));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
   });
 
 program.parse();

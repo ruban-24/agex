@@ -33,7 +33,7 @@ export async function taskExecCommand(
 
   if (options.wait) {
     // Blocking execution
-    const result = await runner.run(taskId, options.cmd, wtPath, task.env);
+    const result = await runner.run(taskId, options.cmd, wtPath, { ...task.env });
     await tm.updateTask(taskId, { exit_code: result.exitCode, cmd: options.cmd });
 
     // Run verification
@@ -53,7 +53,7 @@ export async function taskExecCommand(
     return await tm.updateStatus(taskId, finalStatus);
   } else {
     // Non-blocking: spawn and return immediately
-    const handle = runner.spawn(taskId, options.cmd, wtPath, task.env);
+    const handle = runner.spawn(taskId, options.cmd, wtPath, { ...task.env });
     await tm.updateTask(taskId, { pid: handle.pid, cmd: options.cmd });
     return (await tm.getTask(taskId))!;
   }
