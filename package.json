@@ -4,7 +4,8 @@
   "description": "A CLI runtime for running parallel AI coding tasks safely inside real repos",
   "type": "module",
   "bin": {
-    "agentpod": "./dist/index.js"
+    "agentpod": "./dist/index.js",
+    "agentpod-mcp": "./dist/mcp/server.js"
   },
   "scripts": {
     "build": "tsup",
@@ -13,12 +14,20 @@
     "test:watch": "vitest",
     "lint": "tsc --noEmit"
   },
-  "keywords": ["ai", "coding", "agents", "git", "worktree", "cli"],
+  "keywords": [
+    "ai",
+    "coding",
+    "agents",
+    "git",
+    "worktree",
+    "cli"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^13.1.0",
     "execa": "^9.5.2",
     "js-yaml": "^4.1.0",
