@@ -137,6 +137,9 @@ export async function multiSelect<T>(
       (input as NodeJS.ReadStream).setRawMode(true);
     }
 
+    // Resume in case a prior readline.close() paused the stream
+    input.resume();
+
     let escBuffer = '';
 
     const handleData = (data: Buffer) => {
