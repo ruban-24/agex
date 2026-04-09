@@ -47,7 +47,4 @@ export const DEFAULT_PORTS = {
   offset: 100,
 } as const;
 
-export const DEFAULT_CONCURRENCY = 5;
-export const DEFAULT_TIMEOUT = 0;
-
 export const BRANCH_PREFIX = 'agentpod/';

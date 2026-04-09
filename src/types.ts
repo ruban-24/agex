@@ -58,19 +58,5 @@ export interface AgentpodConfig {
   verify?: string[];
   copy?: string[];
   symlink?: string[];
-  copy_ignored?: {
-    enabled: boolean;
-    exclude?: string[];
-  };
   setup?: string[];
-  setup_background?: string[];
-  ports?: {
-    base: number;
-    offset: number;
-  };
-  defaults?: {
-    cmd?: string;
-  };
-  concurrency?: number;
-  timeout?: number;
 }
