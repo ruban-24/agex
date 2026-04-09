@@ -48,6 +48,17 @@ describe('taskStatusCommand', () => {
     expect(result.env.AGENTPOD_TASK_ID).toBe(created.id);
   });
 
+  it('includes port, url, and server_running in output', async () => {
+    const task = await taskCreateCommand(repo.path, { prompt: 'status test' });
+    const result = await taskStatusCommand(repo.path, task.id);
+
+    const port = parseInt(task.env.AGENTPOD_PORT, 10);
+    expect(result.port).toBe(port);
+    expect(result.url).toBe(`http://localhost:${port}`);
+    expect(result.server_running).toBe(false);
+    expect(result.server_pid).toBeUndefined();
+  });
+
   it('throws an error for a non-existent task', async () => {
     await expect(
       taskStatusCommand(repo.path, 'nonexist')
