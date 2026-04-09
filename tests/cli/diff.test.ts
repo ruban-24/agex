@@ -49,4 +49,28 @@ describe('diffCommand', () => {
     expect(result.id).toBe(task.id);
     expect(result.files_changed).toBe(1);
   });
+
+  it('includes commit log in result', async () => {
+    const task = await taskCreateCommand(repo.path, { prompt: 'commits test' });
+    const wtPath = join(repo.path, '.agentpod', 'worktrees', task.id);
+    await writeFile(join(wtPath, 'file.ts'), 'export const y = 1;\n');
+    execSync('git add . && git commit -m "test commit"', { cwd: wtPath, stdio: 'ignore' });
+
+    const result = await diffCommand(repo.path, task.id);
+    expect(result.commits).toBeDefined();
+    expect(Array.isArray(result.commits)).toBe(true);
+    expect(result.commits.length).toBeGreaterThan(0);
+  });
+
+  it('includes per-file stats in result', async () => {
+    const task = await taskCreateCommand(repo.path, { prompt: 'files test' });
+    const wtPath = join(repo.path, '.agentpod', 'worktrees', task.id);
+    await writeFile(join(wtPath, 'stats.ts'), 'export const z = 1;\n');
+    execSync('git add . && git commit -m "add stats file"', { cwd: wtPath, stdio: 'ignore' });
+
+    const result = await diffCommand(repo.path, task.id);
+    expect(result.files).toBeDefined();
+    expect(Array.isArray(result.files)).toBe(true);
+    expect(result.files.length).toBeGreaterThan(0);
+  });
 });
