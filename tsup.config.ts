@@ -16,5 +16,6 @@ export default defineConfig([
     target: 'node20',
     sourcemap: true,
     dts: true,
+    banner: { js: '#!/usr/bin/env node' },
   },
 ]);
