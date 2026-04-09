@@ -1,7 +1,7 @@
 import { readFile, writeFile, readdir, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { generateTaskId } from '../utils/id.js';
-import { calculatePortOffset } from '../utils/port.js';
+import { calculatePort } from '../utils/port.js';
 import {
   tasksPath,
   taskFilePath,
@@ -27,7 +27,7 @@ export class TaskManager {
     const id = generateTaskId();
     const existingTasks = await this.listTasks();
     const taskIndex = existingTasks.length;
-    const portOffset = calculatePortOffset(taskIndex, DEFAULT_PORTS.base, DEFAULT_PORTS.offset);
+    const port = calculatePort(taskIndex, DEFAULT_PORTS.base, DEFAULT_PORTS.step);
     const worktreeAbsolute = resolve(this.repoRoot, '.agentpod', 'worktrees', id);
 
     const task: TaskRecord = {
@@ -41,7 +41,7 @@ export class TaskManager {
       env: {
         AGENTPOD_TASK_ID: id,
         AGENTPOD_WORKTREE: worktreeAbsolute,
-        AGENTPOD_PORT_OFFSET: String(portOffset),
+        AGENTPOD_PORT: String(port),
       },
     };
 

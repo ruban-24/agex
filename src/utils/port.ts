@@ -1,3 +1,3 @@
-export function calculatePortOffset(taskIndex: number, base: number, offset: number): number {
-  return base + offset * (taskIndex + 1);
+export function calculatePort(taskIndex: number, base: number, step: number): number {
+  return base + step * (taskIndex + 1);
 }

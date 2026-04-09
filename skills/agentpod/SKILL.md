@@ -1,6 +1,7 @@
 ---
 name: agentpod
-description: Use when working in a git repository and needing to run coding tasks in parallel, try multiple approaches to a problem, isolate risky changes in safe worktrees, or verify and compare results before merging
+description: Use when working in a git repository and needing to run coding tasks in parallel, try multiple approaches, isolate risky changes in worktrees, compare agent outputs, or safely experiment without affecting the main branch. Also use when orchestrating multiple coding agents simultaneously.
+compatibility: Requires git and Node.js >= 20. agentpod must be installed globally (npm i -g agentpod).
 ---
 
 # agentpod
@@ -198,8 +199,8 @@ pending -> provisioning -> ready -> running -> verifying -> completed -> merged
 
 - **JSON-first**: All output is JSON by default — designed for agent consumption
 - **Auto-detection**: Verify commands detected from package.json, Makefile, pyproject.toml, Cargo.toml, go.mod
-- **Port isolation**: Each task gets `AGENTPOD_PORT_OFFSET` env var to avoid port conflicts
-- **Env vars injected**: `AGENTPOD_TASK_ID`, `AGENTPOD_WORKTREE`, `AGENTPOD_PORT_OFFSET`
+- **Port isolation**: Each task gets `AGENTPOD_PORT` env var to avoid port conflicts
+- **Env vars injected**: `AGENTPOD_TASK_ID`, `AGENTPOD_WORKTREE`, `AGENTPOD_PORT`
 - **Merge strategy**: Fast-forward first, merge commit fallback. Conflicts abort cleanly.
 - **Exit codes**: 0=success, 1=agent failed, 2=verification failed, 3=merge conflict, 4=invalid args, 5=workspace error
 

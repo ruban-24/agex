@@ -44,7 +44,7 @@ export const EXIT_CODES = {
 
 export const DEFAULT_PORTS = {
   base: 3000,
-  offset: 100,
+  step: 100,
 } as const;
 
 export const BRANCH_PREFIX = 'agentpod/';

@@ -109,7 +109,7 @@ agentpod merge <best-id>
 agentpod clean
 ```
 
-**Each task gets its own environment variables** — `AGENTPOD_TASK_ID`, `AGENTPOD_WORKTREE`, and `AGENTPOD_PORT_OFFSET` — so parallel processes can bind to different ports without conflicts.
+**Each task gets its own environment variables** — `AGENTPOD_TASK_ID`, `AGENTPOD_WORKTREE`, and `AGENTPOD_PORT` — so parallel processes can bind to different ports without conflicts.
 
 ## What Does It Look Like?
 

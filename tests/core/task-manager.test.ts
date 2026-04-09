@@ -29,7 +29,7 @@ describe('TaskManager', () => {
       expect(task.created_at).toBeTruthy();
       expect(task.env.AGENTPOD_TASK_ID).toBe(task.id);
       expect(task.env.AGENTPOD_WORKTREE).toContain(task.id);
-      expect(task.env.AGENTPOD_PORT_OFFSET).toBeTruthy();
+      expect(task.env.AGENTPOD_PORT).toBeTruthy();
     });
 
     it('persists task record as JSON file', async () => {
@@ -55,8 +55,8 @@ describe('TaskManager', () => {
       const task1 = await tm.createTask({ prompt: 'task 1' });
       const task2 = await tm.createTask({ prompt: 'task 2' });
 
-      const port1 = parseInt(task1.env.AGENTPOD_PORT_OFFSET, 10);
-      const port2 = parseInt(task2.env.AGENTPOD_PORT_OFFSET, 10);
+      const port1 = parseInt(task1.env.AGENTPOD_PORT, 10);
+      const port2 = parseInt(task2.env.AGENTPOD_PORT, 10);
       expect(port2).toBe(port1 + 100);
     });
   });

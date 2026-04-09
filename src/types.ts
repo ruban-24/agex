@@ -13,7 +13,7 @@ export type TaskStatus =
 export interface TaskEnv {
   AGENTPOD_TASK_ID: string;
   AGENTPOD_WORKTREE: string;
-  AGENTPOD_PORT_OFFSET: string;
+  AGENTPOD_PORT: string;
 }
 
 export interface VerificationCheck {

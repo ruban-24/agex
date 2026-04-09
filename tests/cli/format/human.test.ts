@@ -30,7 +30,7 @@ function makeTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
     env: {
       AGENTPOD_TASK_ID: 'abc123',
       AGENTPOD_WORKTREE: '/tmp/test/.agentpod/worktrees/abc123',
-      AGENTPOD_PORT_OFFSET: '3100',
+      AGENTPOD_PORT: '3100',
     },
     ...overrides,
   };
