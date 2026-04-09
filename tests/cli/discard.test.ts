@@ -36,6 +36,27 @@ describe('discardCommand', () => {
     await repo.cleanup();
   });
 
+  it('throws friendly error when discarding a running task without destroying worktree', async () => {
+    const { access: acc } = await import('node:fs/promises');
+    const { TaskManager } = await import('../../src/core/task-manager.js');
+
+    const task = await taskCreateCommand(repo.path, { prompt: 'running discard test' });
+    const tm = new TaskManager(repo.path);
+
+    // Force task to running status (bypass state machine for test setup)
+    const taskData = await tm.getTask(task.id);
+    taskData!.status = 'running' as any;
+    await tm.saveTask(taskData!);
+
+    await expect(discardCommand(repo.path, task.id)).rejects.toThrow(
+      /Cannot discard.*running/
+    );
+
+    // Worktree should still exist
+    const wtPath = join(repo.path, '.agentpod', 'worktrees', task.id);
+    await acc(wtPath);
+  });
+
   it('discards a task by removing worktree and branch', async () => {
     const task = await taskCreateCommand(repo.path, { prompt: 'discard test' });
     const wtPath = join(repo.path, '.agentpod', 'worktrees', task.id);

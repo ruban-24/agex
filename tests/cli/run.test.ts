@@ -113,6 +113,36 @@ describe('taskExecCommand', () => {
     expect(result.status).toBe('completed');
   });
 
+  it('throws friendly error when task is already running', async () => {
+    const { TaskManager } = await import('../../src/core/task-manager.js');
+
+    const task = await taskCreateCommand(repo.path, { prompt: 'double run test' });
+    const tm = new TaskManager(repo.path);
+
+    const taskData = await tm.getTask(task.id);
+    taskData!.status = 'running' as any;
+    await tm.saveTask(taskData!);
+
+    await expect(
+      taskExecCommand(repo.path, task.id, { cmd: 'echo hi', wait: true })
+    ).rejects.toThrow(/already running/i);
+  });
+
+  it('throws friendly error when task is already completed', async () => {
+    const { TaskManager } = await import('../../src/core/task-manager.js');
+
+    const task = await taskCreateCommand(repo.path, { prompt: 'completed task' });
+    const tm = new TaskManager(repo.path);
+
+    const taskData = await tm.getTask(task.id);
+    taskData!.status = 'completed' as any;
+    await tm.saveTask(taskData!);
+
+    await expect(
+      taskExecCommand(repo.path, task.id, { cmd: 'echo hi', wait: true })
+    ).rejects.toThrow(/Cannot execute.*completed/);
+  });
+
   it('updates status after non-blocking exec completes', async () => {
     const { writeFile: wf } = await import('node:fs/promises');
     const { join: j } = await import('node:path');

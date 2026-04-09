@@ -28,7 +28,16 @@ export async function taskExecCommand(
 
   const wtPath = resolve(repoRoot, task.worktree);
 
-  // Transition to running
+  // Validate current status before transitioning
+  if (task.status === 'running') {
+    throw new Error(`Task ${taskId} is already running (pid: ${task.pid || 'unknown'})`);
+  }
+  if (task.status !== 'ready') {
+    throw new Error(
+      `Cannot execute task in '${task.status}' status. Task must be 'ready'.`
+    );
+  }
+
   await tm.updateStatus(taskId, 'running');
 
   if (options.wait) {

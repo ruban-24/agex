@@ -14,6 +14,19 @@ export async function discardCommand(
     throw new Error(`Task not found: ${taskId}`);
   }
 
-  await wm.removeWorktree(taskId, task.branch);
+  // Validate the transition BEFORE destroying the worktree
+  const discardableStatuses = ['ready', 'completed', 'failed', 'errored'];
+  if (!discardableStatuses.includes(task.status)) {
+    throw new Error(
+      `Cannot discard task in '${task.status}' status. ` +
+      `Task must be in one of: ${discardableStatuses.join(', ')}`
+    );
+  }
+
+  try {
+    await wm.removeWorktree(taskId, task.branch);
+  } catch {
+    // Worktree may already be removed
+  }
   return await tm.updateStatus(taskId, 'discarded');
 }
