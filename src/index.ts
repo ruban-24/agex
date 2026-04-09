@@ -14,7 +14,7 @@ import { compareCommand } from './cli/commands/compare.js';
 import { mergeCommand } from './cli/commands/merge.js';
 import { discardCommand } from './cli/commands/discard.js';
 import { cleanCommand } from './cli/commands/clean.js';
-import { formatOutput, formatTable, humanOutput } from './cli/output.js';
+import { formatOutput, humanOutput } from './cli/output.js';
 import {
   formatListHuman,
   formatStatusHuman,
