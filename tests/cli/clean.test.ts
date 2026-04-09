@@ -56,4 +56,35 @@ describe('cleanCommand', () => {
     const result = await tm.getTask(task.id);
     expect(result).toBeNull();
   });
+
+  it('auto-kills server before cleaning task', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const { join } = await import('node:path');
+    const { dump } = await import('js-yaml');
+    const { taskStartCommand } = await import('../../src/cli/commands/task-start.js');
+    const { ServerManager } = await import('../../src/core/server-manager.js');
+    const { TaskManager } = await import('../../src/core/task-manager.js');
+
+    await writeFile(
+      join(repo.path, '.agentpod', 'config.yml'),
+      dump({ run: { cmd: 'sleep 60' } })
+    );
+    const task = await taskCreateCommand(repo.path, { prompt: 'server clean test' });
+    const startResult = await taskStartCommand(repo.path, task.id);
+
+    // Force task to completed status so clean picks it up
+    const tm = new TaskManager(repo.path);
+    const taskData = await tm.getTask(task.id);
+    taskData!.status = 'completed' as any;
+    await tm.saveTask(taskData!);
+
+    const sm = new ServerManager(repo.path);
+    expect(sm.isProcessAlive(startResult.server_pid)).toBe(true);
+
+    const result = await cleanCommand(repo.path);
+    expect(result.removed).toContain(task.id);
+
+    // Server should be dead
+    expect(sm.isProcessAlive(startResult.server_pid)).toBe(false);
+  });
 });
