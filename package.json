@@ -23,6 +23,19 @@
     "cli"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruban-24/agentpod.git"
+  },
+  "homepage": "https://github.com/ruban-24/agentpod#readme",
+  "bugs": {
+    "url": "https://github.com/ruban-24/agentpod/issues"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=20"
   },
