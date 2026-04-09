@@ -1,3 +1,5 @@
+import { stripAnsi, isTTY } from './format/colors.js';
+
 export function formatOutput(data: unknown, human: boolean): string {
   if (!human) {
     return JSON.stringify(data);
@@ -30,4 +32,9 @@ export function formatTable(headers: string[], rows: string[][]): string {
     ...dataLines.map((line) => `│${line}│`),
     botBorder,
   ].join('\n');
+}
+
+export function humanOutput(formatted: string): string {
+  if (isTTY()) return formatted;
+  return stripAnsi(formatted);
 }

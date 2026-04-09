@@ -14,8 +14,26 @@ import { compareCommand } from './cli/commands/compare.js';
 import { mergeCommand } from './cli/commands/merge.js';
 import { discardCommand } from './cli/commands/discard.js';
 import { cleanCommand } from './cli/commands/clean.js';
-import { formatOutput, formatTable } from './cli/output.js';
+import { formatOutput, formatTable, humanOutput } from './cli/output.js';
+import {
+  formatListHuman,
+  formatStatusHuman,
+  formatSummaryHuman,
+  formatDiffHuman,
+  formatVerifyHuman,
+  formatCompareHuman,
+  formatInitHuman,
+  formatTaskCreateHuman,
+  formatMergeHuman,
+  formatDiscardHuman,
+  formatCleanHuman,
+  formatRunHuman,
+  formatTaskExecHuman,
+  formatErrorHuman,
+} from './cli/format/human.js';
 import { EXIT_CODES } from './constants.js';
+
+let isHumanMode = false;
 
 const program = new Command();
 
@@ -30,7 +48,11 @@ function getRepoRoot(): string {
 
 function handleError(err: unknown, exitCode: number = EXIT_CODES.INVALID_ARGS): never {
   const message = err instanceof Error ? err.message : String(err);
-  console.error(JSON.stringify({ error: message }));
+  if (isHumanMode) {
+    console.error(humanOutput(formatErrorHuman(message)));
+  } else {
+    console.error(JSON.stringify({ error: message }));
+  }
   process.exit(exitCode);
 }
 
@@ -41,8 +63,9 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await initCommand(getRepoRoot(), { verify: opts.verify });
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatInitHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -58,11 +81,12 @@ taskCmd
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await taskCreateCommand(getRepoRoot(), {
         prompt: opts.prompt,
         cmd: opts.cmd,
       });
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatTaskCreateHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -74,8 +98,15 @@ taskCmd
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await taskStatusCommand(getRepoRoot(), id);
-      console.log(formatOutput(result, opts.human));
+      if (opts.human) {
+        let logContent = '';
+        try { logContent = await logCommand(getRepoRoot(), id); } catch {}
+        console.log(humanOutput(formatStatusHuman(result, logContent)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -89,11 +120,12 @@ taskCmd
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await taskExecCommand(getRepoRoot(), id, {
         cmd: opts.cmd,
         wait: opts.wait,
       });
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatTaskExecHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.AGENT_FAILED);
     }
@@ -108,12 +140,13 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await runCommand(getRepoRoot(), {
         prompt: opts.prompt,
         cmd: opts.cmd,
         wait: opts.wait,
       });
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatRunHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.AGENT_FAILED);
     }
@@ -125,19 +158,9 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await listCommand(getRepoRoot());
-      if (opts.human) {
-        const headers = ['ID', 'Status', 'Prompt', 'Files Changed'];
-        const rows = result.map((t) => [
-          t.id,
-          t.status,
-          t.prompt.slice(0, 40),
-          String(t.diff_stats?.files_changed ?? '-'),
-        ]);
-        console.log(formatTable(headers, rows));
-      } else {
-        console.log(formatOutput(result, false));
-      }
+      console.log(opts.human ? humanOutput(formatListHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -161,8 +184,9 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await summaryCommand(getRepoRoot());
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatSummaryHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -174,8 +198,9 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await verifyCommand(getRepoRoot(), id);
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatVerifyHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.VERIFICATION_FAILED);
     }
@@ -187,8 +212,9 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await diffCommand(getRepoRoot(), id);
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatDiffHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -200,20 +226,9 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (ids, opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await compareCommand(getRepoRoot(), ids);
-      if (opts.human) {
-        const headers = ['ID', 'Status', 'Checks', 'Files Changed', 'Prompt'];
-        const rows = result.tasks.map((t) => [
-          t.id,
-          t.status,
-          t.checks_total != null ? `${t.checks_passed}/${t.checks_total}` : '-',
-          String(t.files_changed),
-          t.prompt.slice(0, 30),
-        ]);
-        console.log(formatTable(headers, rows));
-      } else {
-        console.log(formatOutput(result, false));
-      }
+      console.log(opts.human ? humanOutput(formatCompareHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -225,12 +240,17 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await mergeCommand(getRepoRoot(), id);
       if (!result.merged) {
-        console.error(JSON.stringify({ error: 'Merge conflict', id }));
+        if (isHumanMode) {
+          console.error(humanOutput(formatErrorHuman(`Merge conflict on ${id}`)));
+        } else {
+          console.error(JSON.stringify({ error: 'Merge conflict', id }));
+        }
         process.exit(EXIT_CODES.MERGE_CONFLICT);
       }
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatMergeHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.MERGE_CONFLICT);
     }
@@ -242,8 +262,9 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await discardCommand(getRepoRoot(), id);
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatDiscardHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -255,8 +276,9 @@ program
   .option('--human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
+      isHumanMode = opts.human;
       const result = await cleanCommand(getRepoRoot());
-      console.log(formatOutput(result, opts.human));
+      console.log(opts.human ? humanOutput(formatCleanHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
