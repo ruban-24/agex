@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "node build.js",
+    "prepare": "node build.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
