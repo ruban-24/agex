@@ -52,6 +52,8 @@ export interface TaskRecord {
   env: TaskEnv;
   verification?: VerificationResult;
   diff_stats?: DiffStats;
+  server_pid?: number;
+  server_started_at?: string;
 }
 
 export interface RunConfig {
