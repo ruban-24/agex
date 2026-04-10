@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">agex</h1>
   <p align="center">
-    <strong><em><strong>ag</strong></em>ent <em><strong>ex</strong></em>ecution, parallelized.</strong>
+    <strong><ins>ag</ins>ent <ins>ex</ins>ecution, parallelized.</strong>
   </p>
   <p align="center">
     Run N agents in parallel. Each gets its own branch. Nothing touches main until you say so.

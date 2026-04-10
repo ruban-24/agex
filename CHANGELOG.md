@@ -2,7 +2,7 @@
 
 ## 0.1.0 — 2026-04-10
 
-Initial public release. Renamed from `agentpod` to `agex` (**ag**ent **ex**ecution).
+Initial public release.
 
 ### Features
 
