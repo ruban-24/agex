@@ -6,6 +6,7 @@ import { loadConfig } from '../../config/loader.js';
 import { detectVerifyCommands } from '../../config/auto-detect.js';
 import { checkNeedsInput } from './task-exec.js';
 import { Reviewer } from '../../core/reviewer.js';
+import { AgexError } from '../../errors.js';
 import type { TaskRecord, QAPair } from '../../types.js';
 
 export interface RespondOptions {
@@ -42,12 +43,15 @@ export async function respondCommand(
   const task = await tm.getTask(taskId);
 
   if (!task) {
-    throw new Error(`Task not found: ${taskId}`);
+    throw new AgexError(`Task not found: ${taskId}`, {
+      suggestion: "Run 'agex list' to see available tasks",
+    });
   }
 
   if (task.status !== 'needs-input') {
-    throw new Error(
-      `Task ${taskId} is in '${task.status}' state, not 'needs-input'. Cannot respond.`
+    throw new AgexError(
+      `Task ${taskId} is in '${task.status}' state, not 'needs-input'. Cannot respond.`,
+      { suggestion: `Run 'agex task status ${taskId}' for details` },
     );
   }
 

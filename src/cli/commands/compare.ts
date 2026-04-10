@@ -1,5 +1,6 @@
 import { TaskManager } from '../../core/task-manager.js';
 import { Reviewer } from '../../core/reviewer.js';
+import { AgexError } from '../../errors.js';
 
 export interface CompareTaskInfo {
   id: string;
@@ -29,7 +30,9 @@ export async function compareCommand(
   for (const id of taskIds) {
     const task = await tm.getTask(id);
     if (!task) {
-      throw new Error(`Task not found: ${id}`);
+      throw new AgexError(`Task not found: ${id}`, {
+        suggestion: "Run 'agex list' to see available tasks",
+      });
     }
 
     const stats = await reviewer.getDiff(task.branch);

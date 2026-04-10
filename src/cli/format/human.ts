@@ -498,6 +498,10 @@ export function formatRespondHuman(task: TaskRecord): string {
   ]);
 }
 
-export function formatErrorHuman(message: string): string {
-  return `${red('error:')} ${message}`;
+export function formatErrorHuman(message: string, suggestion?: string): string {
+  let output = `${red('✗')} ${message}`;
+  if (suggestion) {
+    output += '\n' + dim(`  → ${suggestion}`);
+  }
+  return output;
 }

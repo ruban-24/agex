@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { getTools } from './tools.js';
+import { AgexError } from '../errors.js';
 
 export async function startMcpServer(): Promise<void> {
   const server = new McpServer({
@@ -23,8 +24,9 @@ export async function startMcpServer(): Promise<void> {
             };
           } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
+            const suggestion = err instanceof AgexError ? err.suggestion : undefined;
             return {
-              content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }],
+              content: [{ type: 'text' as const, text: JSON.stringify({ error: message, ...(suggestion && { suggestion }) }) }],
               isError: true,
             };
           }
@@ -39,8 +41,9 @@ export async function startMcpServer(): Promise<void> {
           };
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
+          const suggestion = err instanceof AgexError ? err.suggestion : undefined;
           return {
-            content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }],
+            content: [{ type: 'text' as const, text: JSON.stringify({ error: message, ...(suggestion && { suggestion }) }) }],
             isError: true,
           };
         }

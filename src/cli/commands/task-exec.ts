@@ -5,6 +5,7 @@ import { AgentRunner } from '../../core/agent-runner.js';
 import { Verifier } from '../../core/verifier.js';
 import { loadConfig } from '../../config/loader.js';
 import { detectVerifyCommands } from '../../config/auto-detect.js';
+import { AgexError } from '../../errors.js';
 import type { TaskRecord, NeedsInputPayload } from '../../types.js';
 
 export interface TaskExecOptions {
@@ -44,18 +45,23 @@ export async function taskExecCommand(
 
   const task = await tm.getTask(taskId);
   if (!task) {
-    throw new Error(`Task not found: ${taskId}`);
+    throw new AgexError(`Task not found: ${taskId}`, {
+      suggestion: "Run 'agex list' to see available tasks",
+    });
   }
 
   const wtPath = resolve(repoRoot, task.worktree);
 
   // Validate current status before transitioning
   if (task.status === 'running') {
-    throw new Error(`Task ${taskId} is already running (pid: ${task.pid || 'unknown'})`);
+    throw new AgexError(`Task ${taskId} is already running (pid: ${task.pid || 'unknown'})`, {
+      suggestion: `Run 'agex task status ${taskId}' for details`,
+    });
   }
   if (task.status !== 'ready') {
-    throw new Error(
-      `Cannot execute task in '${task.status}' status. Task must be 'ready'.`
+    throw new AgexError(
+      `Cannot execute task in '${task.status}' status. Task must be 'ready'.`,
+      { suggestion: `Run 'agex task status ${taskId}' for details` },
     );
   }
 

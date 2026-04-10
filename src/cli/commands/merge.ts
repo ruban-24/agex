@@ -3,6 +3,7 @@ import { TaskManager } from '../../core/task-manager.js';
 import { Reviewer } from '../../core/reviewer.js';
 import { WorkspaceManager } from '../../core/workspace-manager.js';
 import { worktreePath } from '../../constants.js';
+import { AgexError } from '../../errors.js';
 
 export interface MergeResult {
   id: string;
@@ -21,12 +22,16 @@ export async function mergeCommand(repoRoot: string, taskId: string): Promise<Me
 
   const task = await tm.getTask(taskId);
   if (!task) {
-    throw new Error(`Task not found: ${taskId}`);
+    throw new AgexError(`Task not found: ${taskId}`, {
+      suggestion: "Run 'agex list' to see available tasks",
+    });
   }
 
   const mergeableStatuses = ['ready', 'completed', 'failed'];
   if (!mergeableStatuses.includes(task.status)) {
-    throw new Error(`Cannot merge task in '${task.status}' status (must be: ${mergeableStatuses.join(', ')})`);
+    throw new AgexError(`Cannot merge task in '${task.status}' status (must be: ${mergeableStatuses.join(', ')})`, {
+      suggestion: `Run 'agex task status ${taskId}' for details`,
+    });
   }
 
   const wtPath = worktreePath(repoRoot, taskId);

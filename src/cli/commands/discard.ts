@@ -1,6 +1,7 @@
 import { TaskManager } from '../../core/task-manager.js';
 import { WorkspaceManager } from '../../core/workspace-manager.js';
 import { ServerManager } from '../../core/server-manager.js';
+import { AgexError } from '../../errors.js';
 import type { TaskRecord } from '../../types.js';
 
 export async function discardCommand(
@@ -13,14 +14,17 @@ export async function discardCommand(
 
   const task = await tm.getTask(taskId);
   if (!task) {
-    throw new Error(`Task not found: ${taskId}`);
+    throw new AgexError(`Task not found: ${taskId}`, {
+      suggestion: "Run 'agex list' to see available tasks",
+    });
   }
 
   const discardableStatuses = ['ready', 'completed', 'failed', 'errored'];
   if (!discardableStatuses.includes(task.status)) {
-    throw new Error(
+    throw new AgexError(
       `Cannot discard task in '${task.status}' status. ` +
-      `Task must be in one of: ${discardableStatuses.join(', ')}`
+      `Task must be in one of: ${discardableStatuses.join(', ')}`,
+      { suggestion: `Run 'agex task status ${taskId}' for details` },
     );
   }
 

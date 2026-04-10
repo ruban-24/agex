@@ -46,6 +46,7 @@ import {
   formatRespondHuman,
 } from './cli/format/human.js';
 import { EXIT_CODES } from './constants.js';
+import { AgexError } from './errors.js';
 import { resolveWorktreeContext } from './utils/resolve-context.js';
 
 let isHumanMode = false;
@@ -67,12 +68,10 @@ function getRepoRoot(): string {
   try {
     execSync('git rev-parse --git-dir', { cwd, stdio: 'ignore' });
   } catch {
-    console.error(
-      isHumanMode
-        ? humanOutput(formatErrorHuman('Not a git repository. Run this command inside a git repo.'))
-        : JSON.stringify({ error: 'Not a git repository' })
-    );
-    process.exit(EXIT_CODES.INVALID_ARGS);
+    throw new AgexError('Not a git repository', {
+      suggestion: 'agex must be run inside a git repository',
+      exitCode: EXIT_CODES.INVALID_ARGS,
+    });
   }
   return cwd;
 }
@@ -88,23 +87,24 @@ function requireInit(repoRoot: string): void {
   try {
     accessSync(join(repoRoot, '.agex'));
   } catch {
-    console.error(
-      isHumanMode
-        ? humanOutput(formatErrorHuman('agex not initialized. Run: agex init'))
-        : JSON.stringify({ error: 'agex not initialized. Run: agex init' })
-    );
-    process.exit(EXIT_CODES.WORKSPACE_ERROR);
+    throw new AgexError('agex not initialized', {
+      suggestion: "Run 'agex init' to initialize this repository",
+      exitCode: EXIT_CODES.WORKSPACE_ERROR,
+    });
   }
 }
 
 function handleError(err: unknown, exitCode: number = EXIT_CODES.INVALID_ARGS): never {
   const message = err instanceof Error ? err.message : String(err);
+  const suggestion = err instanceof AgexError ? err.suggestion : undefined;
+  const code = err instanceof AgexError ? err.exitCode : exitCode;
+
   if (isHumanMode) {
-    console.error(humanOutput(formatErrorHuman(message)));
+    console.error(humanOutput(formatErrorHuman(message, suggestion)));
   } else {
-    console.error(JSON.stringify({ error: message }));
+    console.error(JSON.stringify({ error: message, ...(suggestion && { suggestion }) }));
   }
-  process.exit(exitCode);
+  process.exit(code);
 }
 
 program
@@ -401,12 +401,10 @@ program
       requireInit(root);
       const result = await mergeCommand(root, taskId);
       if (!result.merged) {
-        if (isHumanMode) {
-          console.error(humanOutput(formatErrorHuman(`Merge conflict on ${taskId}`)));
-        } else {
-          console.error(JSON.stringify({ error: 'Merge conflict', id: taskId }));
-        }
-        process.exit(EXIT_CODES.MERGE_CONFLICT);
+        throw new AgexError('Merge conflict', {
+          suggestion: `Run 'agex diff ${taskId}' to see changes, or 'agex discard ${taskId}' to abandon`,
+          exitCode: EXIT_CODES.MERGE_CONFLICT,
+        });
       }
       console.log(opts.human ? humanOutput(formatMergeHuman(result)) : formatOutput(result, false));
     } catch (err) {

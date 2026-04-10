@@ -308,8 +308,22 @@ describe('formatTaskStopHuman', () => {
 describe('formatErrorHuman', () => {
   it('formats error as plain text', () => {
     const result = stripAnsi(formatErrorHuman('Task not found: xyz'));
-    expect(result).toContain('error:');
+    expect(result).toContain('✗');
     expect(result).toContain('Task not found: xyz');
+  });
+
+  it('includes suggestion hint line when provided', () => {
+    const result = stripAnsi(formatErrorHuman('Task not found: abc123', "Run 'agex list' to see available tasks"));
+    expect(result).toContain('✗');
+    expect(result).toContain('Task not found: abc123');
+    expect(result).toContain('→');
+    expect(result).toContain("Run 'agex list' to see available tasks");
+  });
+
+  it('omits suggestion line when not provided', () => {
+    const result = stripAnsi(formatErrorHuman('Something went wrong'));
+    expect(result).toContain('Something went wrong');
+    expect(result).not.toContain('→');
   });
 });
 
