@@ -45,6 +45,7 @@ import {
   formatRespondHuman,
 } from './cli/format/human.js';
 import { EXIT_CODES } from './constants.js';
+import { AgexError } from './errors.js';
 import { resolveWorktreeContext } from './utils/resolve-context.js';
 
 let isHumanMode = false;
@@ -98,12 +99,15 @@ function requireInit(repoRoot: string): void {
 
 function handleError(err: unknown, exitCode: number = EXIT_CODES.INVALID_ARGS): never {
   const message = err instanceof Error ? err.message : String(err);
+  const suggestion = err instanceof AgexError ? err.suggestion : undefined;
+  const code = err instanceof AgexError ? err.exitCode : exitCode;
+
   if (isHumanMode) {
-    console.error(humanOutput(formatErrorHuman(message)));
+    console.error(humanOutput(formatErrorHuman(message, suggestion)));
   } else {
-    console.error(JSON.stringify({ error: message }));
+    console.error(JSON.stringify({ error: message, ...(suggestion && { suggestion }) }));
   }
-  process.exit(exitCode);
+  process.exit(code);
 }
 
 program
