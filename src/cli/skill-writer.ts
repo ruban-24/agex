@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import SKILL_CONTENT_RAW from '../../skills/agex/SKILL.md';
 
 export type AgentId = 'claude-code' | 'codex' | 'copilot';
 
@@ -37,8 +37,15 @@ If you are about to edit more than one file, STOP — create an agex task first.
 When multiple parts of the work are independent, create separate agex tasks and work them in parallel.
 `;
 
-// Single source of truth: skills/agex/SKILL.md — bundled at build time via esbuild text loader.
-export const SKILL_CONTENT: string = SKILL_CONTENT_RAW;
+// Single source of truth: skills/agex/SKILL.md — read at runtime.
+// Try two relative paths: dev (src/cli/) and prod (dist/).
+let _skillContent: string;
+try {
+  _skillContent = readFileSync(new URL('../../skills/agex/SKILL.md', import.meta.url), 'utf-8');
+} catch {
+  _skillContent = readFileSync(new URL('../skills/agex/SKILL.md', import.meta.url), 'utf-8');
+}
+export const SKILL_CONTENT: string = _skillContent;
 
 /**
  * Write the agex SKILL.md file and append instructions to the agent's
