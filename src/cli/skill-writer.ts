@@ -170,6 +170,7 @@ pending -> provisioning -> ready -> running -> verifying -> completed -> merged
 - Always \`clean\` after merging/discarding
 - Merge conflicts auto-abort and preserve the worktree so you can fix and retry
 - \`cd\` back to the original repo directory before running \`merge\` or other agex commands
+- Run individual tests directly during development, but use \`agex verify\` for final validation — it runs all checks and records results
 `;
 
 /**

@@ -261,6 +261,7 @@ pending -> provisioning -> ready -> running -> verifying -> completed -> merged
 - **Env vars injected**: `AGEX_TASK_ID`, `AGEX_WORKTREE`, `AGEX_PORT`
 - **Merge strategy**: Fast-forward first, merge commit fallback. Conflicts abort cleanly.
 - **Exit codes**: 0=success, 1=agent failed, 2=verification failed, 3=merge conflict, 4=invalid args, 5=workspace error
+- **Verify vs direct test runs**: During development, run specific tests directly (`npm test -- --grep "my test"`) for fast feedback. Use `agex verify` as the final validation — it runs all configured checks and records results on the task. Don't run the full test suite manually when `agex verify` does it for you.
 
 ## Common Mistakes
 
