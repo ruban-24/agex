@@ -88,13 +88,15 @@ export class TaskManager {
     pending: ['provisioning'],
     provisioning: ['ready', 'errored'],
     ready: ['running', 'verifying', 'merged', 'discarded'],
-    running: ['verifying', 'errored'],
+    running: ['verifying', 'needs-input', 'errored'],
     verifying: ['completed', 'failed'],
-    completed: ['merged', 'discarded'],
-    failed: ['merged', 'discarded'],
-    errored: ['discarded'],
+    completed: ['merged', 'discarded', 'retried'],
+    failed: ['merged', 'discarded', 'retried'],
+    errored: ['discarded', 'retried'],
+    'needs-input': ['running', 'discarded'],
     merged: [],
     discarded: [],
+    retried: [],
   };
 
   async updateStatus(id: string, newStatus: TaskStatus): Promise<TaskRecord> {

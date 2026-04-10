@@ -1,11 +1,16 @@
 import { execaCommand } from 'execa';
-import type { VerificationResult, VerificationCheck } from '../types.js';
+import type { VerificationResult, VerificationCheck, VerifyCommand } from '../types.js';
+
+function normalizeCmd(command: VerifyCommand): string {
+  return typeof command === 'string' ? command : command.cmd;
+}
 
 export class Verifier {
-  async runChecks(cwd: string, commands: string[]): Promise<VerificationResult> {
+  async runChecks(cwd: string, commands: VerifyCommand[]): Promise<VerificationResult> {
     const checks: VerificationCheck[] = [];
 
-    for (const cmd of commands) {
+    for (const rawCmd of commands) {
+      const cmd = normalizeCmd(rawCmd);
       const start = Date.now();
       try {
         const result = await execaCommand(cmd, {

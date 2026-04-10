@@ -166,4 +166,88 @@ describe('TaskManager', () => {
       await expect(tm.deleteTask('nonexistent')).rejects.toThrow('Task not found');
     });
   });
+
+  describe('v0.2.0 state transitions', () => {
+    it('transitions running to needs-input', async () => {
+      const task = await tm.createTask({ prompt: 'test' });
+      await tm.updateStatus(task.id, 'provisioning');
+      await tm.updateStatus(task.id, 'ready');
+      await tm.updateStatus(task.id, 'running');
+      const updated = await tm.updateStatus(task.id, 'needs-input');
+      expect(updated.status).toBe('needs-input');
+    });
+
+    it('transitions needs-input to running', async () => {
+      const task = await tm.createTask({ prompt: 'test' });
+      await tm.updateStatus(task.id, 'provisioning');
+      await tm.updateStatus(task.id, 'ready');
+      await tm.updateStatus(task.id, 'running');
+      await tm.updateStatus(task.id, 'needs-input');
+      const updated = await tm.updateStatus(task.id, 'running');
+      expect(updated.status).toBe('running');
+    });
+
+    it('transitions needs-input to discarded', async () => {
+      const task = await tm.createTask({ prompt: 'test' });
+      await tm.updateStatus(task.id, 'provisioning');
+      await tm.updateStatus(task.id, 'ready');
+      await tm.updateStatus(task.id, 'running');
+      await tm.updateStatus(task.id, 'needs-input');
+      const updated = await tm.updateStatus(task.id, 'discarded');
+      expect(updated.status).toBe('discarded');
+    });
+
+    it('transitions failed to retried', async () => {
+      const task = await tm.createTask({ prompt: 'test' });
+      await tm.updateStatus(task.id, 'provisioning');
+      await tm.updateStatus(task.id, 'ready');
+      await tm.updateStatus(task.id, 'running');
+      await tm.updateStatus(task.id, 'verifying');
+      await tm.updateStatus(task.id, 'failed');
+      const updated = await tm.updateStatus(task.id, 'retried');
+      expect(updated.status).toBe('retried');
+    });
+
+    it('transitions errored to retried', async () => {
+      const task = await tm.createTask({ prompt: 'test' });
+      await tm.updateStatus(task.id, 'provisioning');
+      await tm.updateStatus(task.id, 'ready');
+      await tm.updateStatus(task.id, 'running');
+      await tm.updateStatus(task.id, 'errored');
+      const updated = await tm.updateStatus(task.id, 'retried');
+      expect(updated.status).toBe('retried');
+    });
+
+    it('transitions completed to retried', async () => {
+      const task = await tm.createTask({ prompt: 'test' });
+      await tm.updateStatus(task.id, 'provisioning');
+      await tm.updateStatus(task.id, 'ready');
+      await tm.updateStatus(task.id, 'running');
+      await tm.updateStatus(task.id, 'verifying');
+      await tm.updateStatus(task.id, 'completed');
+      const updated = await tm.updateStatus(task.id, 'retried');
+      expect(updated.status).toBe('retried');
+    });
+
+    it('rejects transition from completed to needs-input', async () => {
+      const task = await tm.createTask({ prompt: 'test' });
+      await tm.updateStatus(task.id, 'provisioning');
+      await tm.updateStatus(task.id, 'ready');
+      await tm.updateStatus(task.id, 'running');
+      await tm.updateStatus(task.id, 'verifying');
+      await tm.updateStatus(task.id, 'completed');
+      await expect(tm.updateStatus(task.id, 'needs-input')).rejects.toThrow(/invalid transition/i);
+    });
+
+    it('rejects transition from retried (terminal)', async () => {
+      const task = await tm.createTask({ prompt: 'test' });
+      await tm.updateStatus(task.id, 'provisioning');
+      await tm.updateStatus(task.id, 'ready');
+      await tm.updateStatus(task.id, 'running');
+      await tm.updateStatus(task.id, 'verifying');
+      await tm.updateStatus(task.id, 'failed');
+      await tm.updateStatus(task.id, 'retried');
+      await expect(tm.updateStatus(task.id, 'running')).rejects.toThrow(/invalid transition/i);
+    });
+  });
 });

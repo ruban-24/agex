@@ -18,11 +18,12 @@ interface ServerAwareTask extends TaskRecord {
 
 function taskSortPriority(status: TaskStatus): number {
   const order: Record<TaskStatus, number> = {
+    'needs-input': 0,
     running: 0, verifying: 0, provisioning: 0,
     failed: 1, errored: 1,
     completed: 2, ready: 2,
     pending: 3,
-    merged: 4, discarded: 5,
+    merged: 4, discarded: 5, retried: 5,
   };
   return order[status] ?? 3;
 }

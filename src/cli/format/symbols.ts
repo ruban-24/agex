@@ -12,6 +12,8 @@ const SYMBOL_MAP: Record<TaskStatus, { symbol: string; color: (s: string) => str
   pending:      { symbol: '○', color: dim },
   verifying:    { symbol: '▶', color: yellow },
   provisioning: { symbol: '▶', color: yellow },
+  'needs-input':  { symbol: '?', color: yellow },
+  retried:        { symbol: '↻', color: dim },
 };
 
 export function statusSymbol(status: TaskStatus): string {

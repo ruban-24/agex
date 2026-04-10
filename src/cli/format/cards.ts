@@ -18,6 +18,8 @@ const STATUS_TO_CARD_COLOR: Record<TaskStatus, CardColor> = {
   pending: 'dim',
   verifying: 'yellow',
   provisioning: 'yellow',
+  'needs-input': 'yellow',
+  retried: 'dim',
 };
 
 export function cardColorForStatus(status: TaskStatus): CardColor {
@@ -48,6 +50,8 @@ export function summaryLine(
     discarded: dim,
     verifying: yellow,
     provisioning: yellow,
+    'needs-input': yellow,
+    retried: dim,
   };
 
   const parts: string[] = [];
