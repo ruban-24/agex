@@ -1,14 +1,35 @@
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { readFile, unlink, access } from 'node:fs/promises';
 import { TaskManager } from '../../core/task-manager.js';
 import { AgentRunner } from '../../core/agent-runner.js';
 import { Verifier } from '../../core/verifier.js';
 import { loadConfig } from '../../config/loader.js';
 import { detectVerifyCommands } from '../../config/auto-detect.js';
-import type { TaskRecord } from '../../types.js';
+import type { TaskRecord, NeedsInputPayload } from '../../types.js';
 
 export interface TaskExecOptions {
   cmd: string;
   wait?: boolean;
+}
+
+export async function checkNeedsInput(wtPath: string): Promise<NeedsInputPayload | null> {
+  const filePath = join(wtPath, '.agex', 'needs-input.json');
+  try {
+    await access(filePath);
+    const content = await readFile(filePath, 'utf-8');
+    const data = JSON.parse(content);
+    if (typeof data.question !== 'string' || !data.question) {
+      return null; // malformed
+    }
+    await unlink(filePath);
+    return {
+      question: data.question,
+      options: Array.isArray(data.options) ? data.options : undefined,
+      context: typeof data.context === 'string' ? data.context : undefined,
+    };
+  } catch {
+    return null; // file doesn't exist or can't be read
+  }
 }
 
 export async function taskExecCommand(
@@ -45,6 +66,13 @@ export async function taskExecCommand(
     const result = await runner.run(taskId, options.cmd, wtPath, { ...task.env });
     await tm.updateTask(taskId, { exit_code: result.exitCode, cmd: options.cmd });
 
+    // Check for needs-input signal
+    const needsInput = await checkNeedsInput(wtPath);
+    if (needsInput) {
+      await tm.updateTask(taskId, { needsInput, cmd: options.cmd });
+      return await tm.updateStatus(taskId, 'needs-input');
+    }
+
     // Run verification
     const verifyCommands = config.verify || (await detectVerifyCommands(wtPath));
     await tm.updateStatus(taskId, 'verifying');
@@ -69,6 +97,13 @@ export async function taskExecCommand(
     handle.done.then(async (runResult) => {
       try {
         await tm.updateTask(taskId, { exit_code: runResult.exitCode });
+
+        const needsInput = await checkNeedsInput(wtPath);
+        if (needsInput) {
+          await tm.updateTask(taskId, { needsInput, cmd: options.cmd });
+          await tm.updateStatus(taskId, 'needs-input');
+          return; // skip verify
+        }
 
         const verifyCommands = config.verify || (await detectVerifyCommands(wtPath));
         await tm.updateStatus(taskId, 'verifying');
