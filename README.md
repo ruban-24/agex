@@ -1,10 +1,10 @@
 <p align="center">
   <h1 align="center">agex</h1>
   <p align="center">
-    <strong>Your agent works in parallel. You pick the winner.</strong>
+    <strong><em><strong>ag</strong></em>ent <em><strong>ex</strong></em>ecution, parallelized.</strong>
   </p>
   <p align="center">
-    Isolate. Execute. Verify. Compare. Merge or discard.
+    Isolated worktrees for every AI task. Parallel by default. Verified before merge. Nothing touches main.
   </p>
   <p align="center">
     <a href="https://github.com/ruban-24/agex/actions"><img src="https://github.com/ruban-24/agex/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
