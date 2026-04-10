@@ -132,6 +132,7 @@ program
 
       const useHuman = opts.human || !isNonInteractive;
       console.log(useHuman ? humanOutput(formatInitHuman(result)) : formatOutput(result, false));
+      process.exit(EXIT_CODES.SUCCESS);
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
