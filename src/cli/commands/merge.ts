@@ -10,6 +10,7 @@ export interface MergeResult {
   strategy?: string;
   commit?: string;
   targetBranch?: string;
+  auto_committed?: boolean;
 }
 
 export async function mergeCommand(repoRoot: string, taskId: string): Promise<MergeResult> {
@@ -29,6 +30,13 @@ export async function mergeCommand(repoRoot: string, taskId: string): Promise<Me
   }
 
   const wtPath = worktreePath(repoRoot, taskId);
+
+  // Auto-commit any uncommitted changes using the task prompt
+  let autoCommitted = false;
+  const commitSha = await wm.commitAll(taskId, task.prompt);
+  if (commitSha) {
+    autoCommitted = true;
+  }
 
   // Remove the worktree but keep the branch (git can't merge a checked-out branch)
   await git.raw(['worktree', 'remove', '--force', wtPath]);
@@ -50,7 +58,7 @@ export async function mergeCommand(repoRoot: string, taskId: string): Promise<Me
     } catch {}
 
     await tm.updateStatus(taskId, 'merged');
-    return { id: taskId, merged: true, strategy: result.strategy, commit: result.commit, targetBranch };
+    return { id: taskId, merged: true, strategy: result.strategy, commit: result.commit, targetBranch, ...(autoCommitted ? { auto_committed: true } : {}) };
   } else {
     // Restore worktree on failure so the task can continue working
     await wm.reattachWorktree(taskId, task.branch);

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { access, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { initCommand } from '../../src/cli/commands/init.js';
+import { initCommand, dumpConfigWithComments } from '../../src/cli/commands/init.js';
 import { createTestRepo, type TestRepo } from '../helpers/test-repo.js';
 
 describe('initCommand', () => {
@@ -61,7 +61,7 @@ describe('initCommand', () => {
     expect(config).toContain('npm run lint');
   });
 
-  it('writes config.yml with provisioning fields', async () => {
+  it('writes config.yml with provisioning fields and comments', async () => {
     await initCommand(repo.path, {
       verify: ['npm test'],
       copy: ['.env'],
@@ -74,6 +74,10 @@ describe('initCommand', () => {
     expect(config).toContain('.env');
     expect(config).toContain('node_modules');
     expect(config).toContain('npm install');
+    expect(config).toContain('# Commands to verify task results');
+    expect(config).toContain('# Files to copy into each worktree');
+    expect(config).toContain('# Directories to symlink into worktrees');
+    expect(config).toContain('# Commands to run after workspace creation');
   });
 
   it('writes skill files for selected agents', async () => {
@@ -127,5 +131,54 @@ describe('initCommand', () => {
     await initCommand(repo.path, {});
     // config.yml should not exist
     await expect(access(join(repo.path, '.agentpod', 'config.yml'))).rejects.toThrow();
+  });
+});
+
+describe('dumpConfigWithComments', () => {
+  it('adds section comments before each key', () => {
+    const yaml = dumpConfigWithComments({
+      verify: ['npm test'],
+      copy: ['.env'],
+      symlink: ['node_modules'],
+      setup: ['npm install'],
+    });
+
+    expect(yaml).toBe(
+      '# Commands to verify task results\n' +
+      'verify:\n' +
+      '  - npm test\n' +
+      '\n' +
+      '# Files to copy into each worktree (e.g., secrets not in git)\n' +
+      'copy:\n' +
+      '  - .env\n' +
+      '\n' +
+      '# Directories to symlink into worktrees (shared, not copied)\n' +
+      'symlink:\n' +
+      '  - node_modules\n' +
+      '\n' +
+      '# Commands to run after workspace creation\n' +
+      'setup:\n' +
+      '  - npm install\n'
+    );
+  });
+
+  it('omits sections with no values', () => {
+    const yaml = dumpConfigWithComments({ verify: ['npm test'] });
+    expect(yaml).toBe(
+      '# Commands to verify task results\n' +
+      'verify:\n' +
+      '  - npm test\n'
+    );
+    expect(yaml).not.toContain('copy');
+    expect(yaml).not.toContain('symlink');
+  });
+
+  it('includes run config with comment', () => {
+    const yaml = dumpConfigWithComments({
+      run: { cmd: 'npm run dev', port_env: 'PORT' },
+    });
+    expect(yaml).toContain('# Dev server started per-task so agents can test against it');
+    expect(yaml).toContain('npm run dev');
+    expect(yaml).toContain('PORT');
   });
 });

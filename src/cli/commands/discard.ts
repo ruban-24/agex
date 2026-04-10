@@ -6,7 +6,7 @@ import type { TaskRecord } from '../../types.js';
 export async function discardCommand(
   repoRoot: string,
   taskId: string
-): Promise<TaskRecord & { server_stopped?: boolean }> {
+): Promise<TaskRecord & { server_stopped?: boolean; uncommitted_changes?: boolean }> {
   const tm = new TaskManager(repoRoot);
   const wm = new WorkspaceManager(repoRoot);
   const sm = new ServerManager(repoRoot);
@@ -24,6 +24,14 @@ export async function discardCommand(
     );
   }
 
+  // Check for uncommitted changes before discarding
+  let uncommittedChanges = false;
+  try {
+    uncommittedChanges = await wm.hasUncommittedChanges(taskId);
+  } catch {
+    // Worktree may already be gone
+  }
+
   // Kill server if running
   let serverStopped = false;
   if (task.server_pid && sm.isProcessAlive(task.server_pid)) {
@@ -38,5 +46,9 @@ export async function discardCommand(
   }
 
   const updated = await tm.updateStatus(taskId, 'discarded');
-  return { ...updated, ...(serverStopped ? { server_stopped: true } : {}) };
+  return {
+    ...updated,
+    ...(serverStopped ? { server_stopped: true } : {}),
+    ...(uncommittedChanges ? { uncommitted_changes: true } : {}),
+  };
 }

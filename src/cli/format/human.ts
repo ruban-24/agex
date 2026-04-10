@@ -338,25 +338,37 @@ export function formatTaskCreateHuman(task: TaskRecord): string {
   return lines.join('\n');
 }
 
-export function formatMergeHuman(data: { id: string; merged: boolean; strategy?: string; commit?: string; targetBranch?: string }): string {
+export function formatMergeHuman(data: { id: string; merged: boolean; strategy?: string; commit?: string; targetBranch?: string; auto_committed?: boolean }): string {
   const lines: string[] = [];
-  lines.push(card('green', [
+  const cardLines = [
     `${green('\u2713')} Merged ${bold(blue(data.id))} into ${data.targetBranch || 'current branch'}`,
     dim(`strategy: ${data.strategy || 'unknown'} \u00b7 commit: ${data.commit || 'unknown'}`),
-  ]));
+  ];
+  if (data.auto_committed) {
+    cardLines.push(dim('auto-committed uncommitted changes before merge'));
+  }
+  lines.push(card('green', cardLines));
   lines.push(nextAction('agentpod clean'));
   return lines.join('\n');
 }
 
-export function formatDiscardHuman(task: TaskRecord): string {
-  return card('dim', [`${dim('\u25CB')} Discarded ${blue(task.id)} \u2014 ${task.prompt}`]);
+export function formatDiscardHuman(task: TaskRecord & { uncommitted_changes?: boolean }): string {
+  const line = `${dim('\u25CB')} Discarded ${blue(task.id)} \u2014 ${task.prompt}`;
+  if (task.uncommitted_changes) {
+    return card('dim', [line, dim('\u26a0 uncommitted changes were discarded')]);
+  }
+  return card('dim', [line]);
 }
 
-export function formatCleanHuman(data: { removed: string[]; kept: string[] }): string {
+export function formatCleanHuman(data: { removed: string[]; kept: string[]; uncommitted_changes?: string[] }): string {
   if (data.removed.length === 0) {
     return card('dim', [`${dim('\u25CB')} Nothing to clean`]);
   }
-  return card('green', [`${green('\u2713')} Cleaned ${data.removed.length} worktrees ${dim(`(${data.removed.join(', ')})`)}`]);
+  const lines = [`${green('\u2713')} Cleaned ${data.removed.length} worktrees ${dim(`(${data.removed.join(', ')})`)}`];
+  if (data.uncommitted_changes?.length) {
+    lines.push(dim(`\u26a0 uncommitted changes lost in: ${data.uncommitted_changes.join(', ')}`));
+  }
+  return card('green', lines);
 }
 
 export function formatRunHuman(task: TaskRecord): string {

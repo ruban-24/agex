@@ -56,6 +56,40 @@ describe('mergeCommand', () => {
     await expect(access(wtPath)).rejects.toThrow();
   });
 
+  it('auto-commits uncommitted changes before merging', async () => {
+    const task = await taskCreateCommand(repo.path, { prompt: 'auto-commit test' });
+
+    // Make a change in the worktree but do NOT commit
+    const wtPath = join(repo.path, '.agentpod', 'worktrees', task.id);
+    await writeFile(join(wtPath, 'uncommitted.ts'), 'export const uncommitted = true;\n');
+
+    const result = await mergeCommand(repo.path, task.id);
+
+    expect(result.id).toBe(task.id);
+    expect(result.merged).toBe(true);
+    expect(result.auto_committed).toBe(true);
+
+    // Verify the file exists on main
+    await access(join(repo.path, 'uncommitted.ts'));
+
+    // Verify commit message is the task prompt
+    const log = execSync('git log -1 --format=%s', { cwd: repo.path, encoding: 'utf-8' }).trim();
+    expect(log).toBe('auto-commit test');
+  });
+
+  it('does not set auto_committed when changes were already committed', async () => {
+    const task = await taskCreateCommand(repo.path, { prompt: 'pre-committed test' });
+
+    const wtPath = join(repo.path, '.agentpod', 'worktrees', task.id);
+    await writeFile(join(wtPath, 'committed.ts'), 'export const committed = true;\n');
+    execSync('git add . && git commit -m "manual commit"', { cwd: wtPath, stdio: 'ignore' });
+
+    const result = await mergeCommand(repo.path, task.id);
+
+    expect(result.merged).toBe(true);
+    expect(result.auto_committed).toBeUndefined();
+  });
+
   it('restores worktree when merge fails due to conflict', async () => {
     const task = await taskCreateCommand(repo.path, { prompt: 'conflict test' });
     const wtPath = join(repo.path, '.agentpod', 'worktrees', task.id);

@@ -5,6 +5,29 @@ import { AGENTPOD_DIR, TASKS_DIR, WORKTREES_DIR, CONFIG_FILE } from '../../const
 import type { AgentpodConfig, RunConfig } from '../../types.js';
 import { type AgentId, writeSkillFiles } from '../skill-writer.js';
 
+const SECTION_COMMENTS: Record<string, string> = {
+  verify: '# Commands to verify task results',
+  copy: '# Files to copy into each worktree (e.g., secrets not in git)',
+  symlink: '# Directories to symlink into worktrees (shared, not copied)',
+  setup: '# Commands to run after workspace creation',
+  run: '# Dev server started per-task so agents can test against it',
+};
+
+export function dumpConfigWithComments(config: AgentpodConfig): string {
+  const sections: string[] = [];
+
+  for (const key of ['verify', 'copy', 'symlink', 'setup', 'run'] as const) {
+    const value = config[key];
+    if (value === undefined) continue;
+
+    const comment = SECTION_COMMENTS[key];
+    const yaml = dump({ [key]: value }, { lineWidth: -1 }).trimEnd();
+    sections.push(`${comment}\n${yaml}`);
+  }
+
+  return sections.join('\n\n') + '\n';
+}
+
 export interface InitOptions {
   verify?: string[];
   copy?: string[];
@@ -58,7 +81,7 @@ export async function initCommand(
     if (options.symlink?.length) config.symlink = options.symlink;
     if (options.setup?.length) config.setup = options.setup;
     if (options.run) config.run = options.run;
-    await writeFile(join(agentpodDir, CONFIG_FILE), dump(config));
+    await writeFile(join(agentpodDir, CONFIG_FILE), dumpConfigWithComments(config));
     files.push('.agentpod/config.yml');
   }
 

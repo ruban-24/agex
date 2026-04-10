@@ -78,6 +78,25 @@ export class WorkspaceManager {
     }
   }
 
+  async hasUncommittedChanges(taskId: string): Promise<boolean> {
+    const wtPath = worktreePath(this.repoRoot, taskId);
+    const git = simpleGit(wtPath);
+    const status = await git.raw(['status', '--porcelain']);
+    return status.trim().length > 0;
+  }
+
+  async commitAll(taskId: string, message: string): Promise<string | null> {
+    const wtPath = worktreePath(this.repoRoot, taskId);
+    const git = simpleGit(wtPath);
+
+    const status = await git.raw(['status', '--porcelain']);
+    if (!status.trim()) return null;
+
+    await git.raw(['add', '-A']);
+    await git.raw(['commit', '-m', message]);
+    return (await git.raw(['rev-parse', 'HEAD'])).trim();
+  }
+
   async removeWorktree(taskId: string, branch: string): Promise<void> {
     const git = simpleGit(this.repoRoot);
     const wtPath = worktreePath(this.repoRoot, taskId);

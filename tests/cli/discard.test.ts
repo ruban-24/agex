@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { access } from 'node:fs/promises';
+import { access, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { discardCommand } from '../../src/cli/commands/discard.js';
@@ -68,6 +68,28 @@ describe('discardCommand', () => {
 
     // Worktree should be gone
     await expect(access(wtPath)).rejects.toThrow();
+  });
+
+  it('warns about uncommitted changes when discarding', async () => {
+    const task = await taskCreateCommand(repo.path, { prompt: 'dirty discard test' });
+    const wtPath = join(repo.path, '.agentpod', 'worktrees', task.id);
+
+    // Make uncommitted changes
+    await writeFile(join(wtPath, 'dirty.ts'), 'export const dirty = true;\n');
+
+    const result = await discardCommand(repo.path, task.id);
+
+    expect(result.status).toBe('discarded');
+    expect(result.uncommitted_changes).toBe(true);
+  });
+
+  it('does not warn when discarding clean worktree', async () => {
+    const task = await taskCreateCommand(repo.path, { prompt: 'clean discard test' });
+
+    const result = await discardCommand(repo.path, task.id);
+
+    expect(result.status).toBe('discarded');
+    expect(result.uncommitted_changes).toBeUndefined();
   });
 
   it('auto-kills server before discarding', async () => {

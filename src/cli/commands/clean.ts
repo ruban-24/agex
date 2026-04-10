@@ -5,6 +5,7 @@ import { ServerManager } from '../../core/server-manager.js';
 export interface CleanResult {
   removed: string[];
   kept: string[];
+  uncommitted_changes?: string[];
 }
 
 export async function cleanCommand(repoRoot: string): Promise<CleanResult> {
@@ -15,6 +16,7 @@ export async function cleanCommand(repoRoot: string): Promise<CleanResult> {
 
   const removed: string[] = [];
   const kept: string[] = [];
+  const dirtyTasks: string[] = [];
 
   for (const task of tasks) {
     if (
@@ -23,6 +25,15 @@ export async function cleanCommand(repoRoot: string): Promise<CleanResult> {
       task.status === 'discarded' ||
       task.status === 'merged'
     ) {
+      // Check for uncommitted changes before cleaning
+      try {
+        if (await wm.hasUncommittedChanges(task.id)) {
+          dirtyTasks.push(task.id);
+        }
+      } catch {
+        // Worktree may already be gone
+      }
+
       // Kill server if running
       if (task.server_pid && sm.isProcessAlive(task.server_pid)) {
         await sm.killProcess(task.server_pid);
@@ -44,5 +55,5 @@ export async function cleanCommand(repoRoot: string): Promise<CleanResult> {
     }
   }
 
-  return { removed, kept };
+  return { removed, kept, ...(dirtyTasks.length ? { uncommitted_changes: dirtyTasks } : {}) };
 }
