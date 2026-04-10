@@ -31,7 +31,18 @@ export async function taskCreateCommand(
 
   // Run setup hooks
   if (config.setup && config.setup.length > 0) {
-    await wm.runSetupHooks(task.id, config.setup);
+    try {
+      await wm.runSetupHooks(task.id, config.setup);
+    } catch (err: unknown) {
+      const stderr = (err as any)?.stderr || '';
+      const cmd = (err as any)?.command || '';
+      const message = cmd
+        ? `Setup hook failed: ${cmd}${stderr ? '\n' + stderr : ''}`
+        : String(err);
+      await tm.updateTask(task.id, { error: message });
+      await tm.updateStatus(task.id, 'errored');
+      throw new Error(message);
+    }
   }
 
   // Mark ready
