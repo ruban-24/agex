@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { TaskManager } from '../../core/task-manager.js';
 import { ServerManager } from '../../core/server-manager.js';
 import { loadConfig } from '../../config/loader.js';
+import { AgexError } from '../../errors.js';
 
 export interface TaskStartResult {
   id: string;
@@ -32,9 +33,10 @@ export async function taskStartCommand(
 
   const validStatuses = ['ready', 'running', 'completed', 'failed'];
   if (!validStatuses.includes(task.status)) {
-    throw new Error(
+    throw new AgexError(
       `Cannot start server for task in '${task.status}' status. ` +
-      `Task must be in one of: ${validStatuses.join(', ')}`
+      `Task must be in one of: ${validStatuses.join(', ')}`,
+      { suggestion: `Run 'agex task status ${taskId}' for details` },
     );
   }
 

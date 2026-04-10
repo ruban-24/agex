@@ -21,9 +21,10 @@ export async function discardCommand(
 
   const discardableStatuses = ['ready', 'completed', 'failed', 'errored'];
   if (!discardableStatuses.includes(task.status)) {
-    throw new Error(
+    throw new AgexError(
       `Cannot discard task in '${task.status}' status. ` +
-      `Task must be in one of: ${discardableStatuses.join(', ')}`
+      `Task must be in one of: ${discardableStatuses.join(', ')}`,
+      { suggestion: `Run 'agex task status ${taskId}' for details` },
     );
   }
 

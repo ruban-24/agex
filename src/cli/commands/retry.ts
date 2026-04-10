@@ -60,8 +60,9 @@ export async function retryCommand(
   }
 
   if (!RETRYABLE_STATUSES.includes(original.status)) {
-    throw new Error(
-      `Cannot retry task in '${original.status}' state. Must be: ${RETRYABLE_STATUSES.join(', ')}`
+    throw new AgexError(
+      `Cannot retry task in '${original.status}' state. Must be: ${RETRYABLE_STATUSES.join(', ')}`,
+      { suggestion: `Run 'agex task status ${taskId}' for details` },
     );
   }
 

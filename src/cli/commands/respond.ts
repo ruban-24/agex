@@ -49,8 +49,9 @@ export async function respondCommand(
   }
 
   if (task.status !== 'needs-input') {
-    throw new Error(
-      `Task ${taskId} is in '${task.status}' state, not 'needs-input'. Cannot respond.`
+    throw new AgexError(
+      `Task ${taskId} is in '${task.status}' state, not 'needs-input'. Cannot respond.`,
+      { suggestion: `Run 'agex task status ${taskId}' for details` },
     );
   }
 
