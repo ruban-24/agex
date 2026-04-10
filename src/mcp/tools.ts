@@ -18,6 +18,7 @@ import { taskStartCommand } from '../cli/commands/task-start.js';
 import { taskStopCommand } from '../cli/commands/task-stop.js';
 import { retryCommand } from '../cli/commands/retry.js';
 import { respondCommand } from '../cli/commands/respond.js';
+import { withAbsoluteWorktree, withAbsoluteWorktrees } from '../cli/enrich.js';
 
 function getRepoRoot(): string {
   return resolve(process.cwd());
@@ -53,11 +54,12 @@ export function getTools(): ToolDefinition[] {
         issue: z.string().optional().describe('GitHub issue reference: number (45), URL, or owner/repo#45'),
       },
       handler: async (args) => {
-        return await taskCreateCommand(getRepoRoot(), {
+        const result = await taskCreateCommand(getRepoRoot(), {
           prompt: args.prompt as string | undefined,
           cmd: args.cmd as string | undefined,
           issue: args.issue as string | undefined,
         });
+        return withAbsoluteWorktree(result, getRepoRoot());
       },
     },
     {
@@ -69,10 +71,11 @@ export function getTools(): ToolDefinition[] {
         wait: z.boolean().default(true).describe('Wait for completion'),
       },
       handler: async (args) => {
-        return await taskExecCommand(getRepoRoot(), args.id as string, {
+        const result = await taskExecCommand(getRepoRoot(), args.id as string, {
           cmd: args.cmd as string,
           wait: (args.wait as boolean) ?? true,
         });
+        return withAbsoluteWorktree(result, getRepoRoot());
       },
     },
     {
@@ -114,11 +117,12 @@ export function getTools(): ToolDefinition[] {
         wait: z.boolean().default(true).describe('Wait for completion'),
       },
       handler: async (args) => {
-        return await runCommand(getRepoRoot(), {
+        const result = await runCommand(getRepoRoot(), {
           prompt: args.prompt as string,
           cmd: args.cmd as string,
           wait: (args.wait as boolean) ?? true,
         });
+        return withAbsoluteWorktree(result, getRepoRoot());
       },
     },
     {
@@ -128,7 +132,8 @@ export function getTools(): ToolDefinition[] {
         id: z.string().describe('Task ID'),
       },
       handler: async (args) => {
-        return await taskStatusCommand(getRepoRoot(), args.id as string);
+        const result = await taskStatusCommand(getRepoRoot(), args.id as string);
+        return withAbsoluteWorktree(result, getRepoRoot());
       },
     },
     {
@@ -165,7 +170,8 @@ export function getTools(): ToolDefinition[] {
       name: 'agex_list',
       description: 'List all tasks',
       handler: async () => {
-        return await listCommand(getRepoRoot());
+        const result = await listCommand(getRepoRoot());
+        return withAbsoluteWorktrees(result, getRepoRoot());
       },
     },
     {
@@ -185,7 +191,8 @@ export function getTools(): ToolDefinition[] {
         id: z.string().describe('Task ID to discard'),
       },
       handler: async (args) => {
-        return await discardCommand(getRepoRoot(), args.id as string);
+        const result = await discardCommand(getRepoRoot(), args.id as string);
+        return withAbsoluteWorktree(result, getRepoRoot());
       },
     },
     {
@@ -214,13 +221,14 @@ export function getTools(): ToolDefinition[] {
         wait: z.boolean().optional().describe('Wait for agent to complete'),
       },
       handler: async (args) => {
-        return await retryCommand(getRepoRoot(), args.taskId as string, {
+        const result = await retryCommand(getRepoRoot(), args.taskId as string, {
           feedback: args.feedback as string,
           cmd: args.cmd as string | undefined,
           fromScratch: args.fromScratch as boolean | undefined,
           dryRun: args.dryRun as boolean | undefined,
           wait: args.wait as boolean | undefined,
         });
+        return withAbsoluteWorktree(result, getRepoRoot());
       },
     },
     {
@@ -233,11 +241,12 @@ export function getTools(): ToolDefinition[] {
         wait: z.boolean().optional().describe('Wait for agent to complete'),
       },
       handler: async (args) => {
-        return await respondCommand(getRepoRoot(), args.taskId as string, {
+        const result = await respondCommand(getRepoRoot(), args.taskId as string, {
           answer: args.answer as string,
           cmd: args.cmd as string | undefined,
           wait: args.wait as boolean | undefined,
         });
+        return withAbsoluteWorktree(result, getRepoRoot());
       },
     },
   ];
