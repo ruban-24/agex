@@ -244,6 +244,22 @@ taskCmd
     }
   });
 
+taskCmd
+  .command('list')
+  .description('List all tasks (alias for top-level list)')
+  .option('-H, --human', 'Human-friendly output', false)
+  .action(async (opts) => {
+    try {
+      isHumanMode = opts.human;
+      const root = getRepoRoot();
+      requireInit(root);
+      const result = await listCommand(root);
+      console.log(opts.human ? humanOutput(formatListHuman(result)) : formatOutput(result, false));
+    } catch (err) {
+      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
+  });
+
 program
   .command('run')
   .description('Create a task and run a command (shortcut for task create + task exec)')
