@@ -15,10 +15,9 @@
   </p>
 </p>
 
-<!-- TODO: Uncomment after recording with VHS -->
-<!-- <p align="center">
+<p align="center">
   <img src="./docs/demo.gif" alt="agex demo" width="800">
-</p> -->
+</p>
 
 ---
 

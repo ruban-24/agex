@@ -1,0 +1,89 @@
+#!/bin/bash
+# Fake agex CLI for VHS demo recording.
+# Produces pre-baked ANSI output so the GIF is deterministic and pixel-perfect.
+
+set -e
+
+# ANSI codes
+G='\033[32m'   # green
+R='\033[31m'   # red
+B='\033[34m'   # blue
+Y='\033[33m'   # yellow
+D='\033[2m'    # dim
+BD='\033[1m'   # bold
+RST='\033[0m'  # reset
+
+args="$*"
+
+case "$args" in
+  *"task create"*"JWT"*)
+    echo ""
+    echo -e "${G}┃${RST} ${G}✓${RST} Created task ${BD}${B}a1b2c3${RST}"
+    echo -e "${G}┃${RST} Add JWT auth with refresh tokens"
+    echo -e "${G}┃${RST} ${D}branch: agex/a1b2c3${RST}"
+    echo ""
+    ;;
+
+  *"task create"*"session"*)
+    echo ""
+    echo -e "${G}┃${RST} ${G}✓${RST} Created task ${BD}${B}d4e5f6${RST}"
+    echo -e "${G}┃${RST} Refactor session middleware to Redis"
+    echo -e "${G}┃${RST} ${D}branch: agex/d4e5f6${RST}"
+    echo ""
+    ;;
+
+  *"task create"*"token"*)
+    echo ""
+    echo -e "${G}┃${RST} ${G}✓${RST} Created task ${BD}${B}g7h8i9${RST}"
+    echo -e "${G}┃${RST} Fix token expiry race condition"
+    echo -e "${G}┃${RST} ${D}branch: agex/g7h8i9${RST}"
+    echo ""
+    ;;
+
+  *"summary"*)
+    echo ""
+    echo -e "${BD}agex · 3 tasks${RST}"
+    echo -e "3 tasks · ${G}1 completed${RST} · ${Y}1 running${RST} · ${R}1 failed${RST}"
+    echo ""
+    echo -e "${G}┃${RST}  ${G}✓${RST}  ${B}a1b2c3${RST}  ${G}completed${RST}  ${D}12.4s${RST}  ${G}✓ 3/3${RST}  ${D}+47 -12 · 4 files${RST}   Add JWT auth with refresh to..."
+    echo -e "${Y}┃${RST}  ${Y}▶${RST}  ${B}d4e5f6${RST}  ${Y}running${RST}    ${D}8.1s${RST}                              Refactor session middleware..."
+    echo -e "${R}┃${RST}  ${R}✗${RST}  ${B}g7h8i9${RST}  ${R}failed${RST}     ${D}15.2s${RST}  ${R}✗ 1/3${RST}  ${D}+93 -41 · 14 files${RST}  Fix token expiry race condi..."
+    echo ""
+    ;;
+
+  *"verify"*)
+    echo ""
+    echo -e "${B}a1b2c3${RST} · verification"
+    echo ""
+    echo -e "${G}✓${RST} npm test          ${D}(4.2s)${RST}"
+    echo -e "${G}✓${RST} npm run lint      ${D}(2.1s)${RST}"
+    echo -e "${G}✓${RST} npm run build     ${D}(6.1s)${RST}"
+    echo ""
+    echo -e "${G}${BD}All 3 checks passed${RST} ${D}(12.4s total)${RST}"
+    echo ""
+    ;;
+
+  *"compare"*)
+    echo ""
+    echo -e "  ID       Status      Checks  Changes  Duration  Prompt"
+    echo -e "  ──────────────────────────────────────────────────────────────────────────"
+    echo -e "  ${B}a1b2c3${RST}   ${G}completed${RST}   ${G}✓ 3/3${RST}   ${D}+47 -12${RST}  ${D}12.4s${RST}     Add JWT auth with refresh tokens"
+    echo -e "  ${B}d4e5f6${RST}   ${G}completed${RST}   ${G}✓ 3/3${RST}   ${D}+31 -8${RST}   ${D} 9.2s${RST}     Refactor session middleware to Redis"
+    echo -e "  ${B}g7h8i9${RST}   ${R}failed${RST}      ${R}✗ 1/3${RST}   ${D}+93 -41${RST}  ${D}15.2s${RST}     Fix token expiry race condition"
+    echo -e "  ──────────────────────────────────────────────────────────────────────────"
+    echo -e "  3 tasks · ${G}2 completed${RST} · ${R}1 failed${RST}"
+    echo ""
+    ;;
+
+  *"merge"*)
+    echo ""
+    echo -e "${G}┃${RST} ${G}✓${RST} Merged ${BD}${B}a1b2c3${RST} into main"
+    echo -e "${G}┃${RST} ${D}strategy: fast-forward · commit: e9f2a17${RST}"
+    echo ""
+    ;;
+
+  *)
+    echo "fake-agex: unknown command: $args" >&2
+    exit 1
+    ;;
+esac
