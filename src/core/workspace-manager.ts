@@ -111,6 +111,25 @@ export class WorkspaceManager {
     return (await git.raw(['rev-parse', 'HEAD'])).trim();
   }
 
+  async safeRemoveWorktree(taskId: string): Promise<void> {
+    try {
+      const git = simpleGit(this.repoRoot);
+      const wtPath = worktreePath(this.repoRoot, taskId);
+      await git.raw(['worktree', 'remove', '--force', wtPath]);
+    } catch {
+      // Worktree may not exist — that's fine
+    }
+  }
+
+  async safeDeleteBranch(branch: string): Promise<void> {
+    try {
+      const git = simpleGit(this.repoRoot);
+      await git.raw(['branch', '-D', branch]);
+    } catch {
+      // Branch may not exist — that's fine
+    }
+  }
+
   async removeWorktree(taskId: string, branch: string): Promise<void> {
     const git = simpleGit(this.repoRoot);
     const wtPath = worktreePath(this.repoRoot, taskId);

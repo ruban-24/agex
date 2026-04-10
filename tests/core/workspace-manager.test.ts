@@ -3,6 +3,7 @@ import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { WorkspaceManager } from '../../src/core/workspace-manager.js';
+import { worktreePath } from '../../src/constants.js';
 import { createTestRepoWithAgex, type TestRepo } from '../helpers/test-repo.js';
 
 describe('WorkspaceManager', () => {
@@ -189,6 +190,51 @@ describe('WorkspaceManager', () => {
 
       // Should not throw
       await wm.runSetupHooks(taskId, []);
+    });
+  });
+
+  describe('safeRemoveWorktree', () => {
+    it('silently succeeds when worktree does not exist', async () => {
+      const wm = new WorkspaceManager(repo.path);
+      // Should not throw — worktree 'nonexistent' was never created
+      await expect(wm.safeRemoveWorktree('nonexistent')).resolves.toBeUndefined();
+    });
+
+    it('removes an existing worktree', async () => {
+      const wm = new WorkspaceManager(repo.path);
+      const { access } = await import('node:fs/promises');
+
+      await wm.createWorktree('cleanup-test', 'agex/cleanup-test');
+      const wtPath = worktreePath(repo.path, 'cleanup-test');
+
+      // Verify it exists
+      await expect(access(wtPath)).resolves.toBeUndefined();
+
+      await wm.safeRemoveWorktree('cleanup-test');
+
+      // Verify it's gone
+      await expect(access(wtPath)).rejects.toThrow();
+    });
+  });
+
+  describe('safeDeleteBranch', () => {
+    it('silently succeeds when branch does not exist', async () => {
+      const wm = new WorkspaceManager(repo.path);
+      await expect(wm.safeDeleteBranch('agex/nonexistent')).resolves.toBeUndefined();
+    });
+
+    it('deletes an existing branch', async () => {
+      const wm = new WorkspaceManager(repo.path);
+      const { execSync } = await import('node:child_process');
+
+      // Create a branch
+      execSync(`git branch agex/delete-me`, { cwd: repo.path, stdio: 'ignore' });
+
+      await wm.safeDeleteBranch('agex/delete-me');
+
+      // Verify branch is gone
+      const branches = execSync('git branch', { cwd: repo.path, encoding: 'utf-8' });
+      expect(branches).not.toContain('agex/delete-me');
     });
   });
 });
