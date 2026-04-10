@@ -40,3 +40,72 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+
+  update-homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get release version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for npm publish
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          for i in $(seq 1 30); do
+            if npm view "@ruban24/agex@${VERSION}" version 2>/dev/null; then
+              echo "Package @ruban24/agex@${VERSION} found on npm"
+              exit 0
+            fi
+            echo "Waiting for npm publish... (attempt $i/30)"
+            sleep 10
+          done
+          echo "::error::Package not found on npm after 5 minutes"
+          exit 1
+
+      - name: Get npm tarball sha256
+        id: sha
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          URL="https://registry.npmjs.org/@ruban24/agex/-/agex-${VERSION}.tgz"
+          SHA=$(curl -sL "$URL" | shasum -a 256 | cut -d' ' -f1)
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Update homebrew-tap formula
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          URL: ${{ steps.sha.outputs.url }}
+          SHA: ${{ steps.sha.outputs.sha256 }}
+          PAT: ${{ secrets.PAT }}
+        run: |
+          git clone "https://x-access-token:${PAT}@github.com/ruban-24/homebrew-tap.git"
+          cd homebrew-tap
+
+          cat > Formula/agex.rb <<FORMULA
+          class Agex < Formula
+            desc "Worktree-isolated task runner for AI coding agents"
+            homepage "https://github.com/ruban-24/agex"
+            url "${URL}"
+            sha256 "${SHA}"
+            license "MIT"
+
+            depends_on "node"
+
+            def install
+              system "npm", "install", *std_npm_args
+              bin.install_symlink Dir["#{libexec}/bin/*"]
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/agex --version")
+            end
+          end
+          FORMULA
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/agex.rb
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: bump agex to ${VERSION}"
+          git push
