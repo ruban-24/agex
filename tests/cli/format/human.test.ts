@@ -18,6 +18,9 @@ import {
   formatTaskStartHuman,
   formatTaskStopHuman,
   formatErrorHuman,
+  formatRetryHuman,
+  formatRetryDryRunHuman,
+  formatRespondHuman,
 } from '../../../src/cli/format/human.js';
 import type { TaskRecord } from '../../../src/types.js';
 
@@ -307,5 +310,48 @@ describe('formatErrorHuman', () => {
     const result = stripAnsi(formatErrorHuman('Task not found: xyz'));
     expect(result).toContain('error:');
     expect(result).toContain('Task not found: xyz');
+  });
+});
+
+describe('v0.2.0 formatters', () => {
+  it('formatRetryDryRunHuman shows prompt preview', () => {
+    const result = stripAnsi(formatRetryDryRunHuman('original prompt\n\n## Feedback\nfix it'));
+    expect(result).toContain('RETRY PROMPT PREVIEW');
+    expect(result).toContain('original prompt');
+    expect(result).toContain('fix it');
+    expect(result).toContain('No task created');
+  });
+
+  it('formatRespondHuman shows confirmation', () => {
+    const task = {
+      id: 'abc123',
+      prompt: 'test',
+      status: 'running' as const,
+      branch: 'agex/abc123',
+      worktree: '.agex/worktrees/abc123',
+      created_at: new Date().toISOString(),
+      env: { AGEX_TASK_ID: 'abc123', AGEX_WORKTREE: '.agex/worktrees/abc123', AGEX_PORT: '3001' },
+    };
+    const result = formatRespondHuman(task);
+    expect(result).toContain('Answer saved');
+    expect(result).toContain('abc123');
+  });
+
+  it('formatRetryHuman shows retry info', () => {
+    const task = {
+      id: 'def456',
+      prompt: 'retry task',
+      status: 'running' as const,
+      branch: 'agex/def456',
+      worktree: '.agex/worktrees/def456',
+      created_at: new Date().toISOString(),
+      env: { AGEX_TASK_ID: 'def456', AGEX_WORKTREE: '.agex/worktrees/def456', AGEX_PORT: '3002' },
+      retriedFrom: 'abc123',
+      retryDepth: 1,
+    };
+    const result = formatRetryHuman(task);
+    expect(result).toContain('Retry created');
+    expect(result).toContain('def456');
+    expect(result).toContain('abc123');
   });
 });

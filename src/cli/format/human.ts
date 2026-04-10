@@ -1,5 +1,5 @@
 // src/cli/format/human.ts
-import { blue, dim, green, red, bold } from './colors.js';
+import { blue, dim, green, red, yellow, bold } from './colors.js';
 import { statusSymbol, statusColor, checkSymbol, diffStats, fileStatusIndicator } from './symbols.js';
 import { formatDuration, formatRelativeTime } from './time.js';
 import { card, cardColorForStatus, sectionHeader, summaryLine, nextAction } from './cards.js';
@@ -72,10 +72,12 @@ function taskCardLine(task: ServerAwareTask): string {
 function nextActionForStatus(id: string, status: TaskStatus): string | null {
   switch (status) {
     case 'completed': return `agex diff ${id} to review, agex merge ${id} to accept`;
-    case 'failed': return `agex log ${id} to see output, agex verify ${id} to re-check`;
-    case 'errored': return `agex log ${id} to see output`;
+    case 'failed': return `agex retry ${id} --feedback "..." to retry, agex log ${id} to see output`;
+    case 'errored': return `agex retry ${id} --feedback "..." to retry, agex log ${id} to see output`;
+    case 'needs-input': return `agex respond ${id} --answer "..." to continue`;
     case 'running': return `agex task status ${id} to check progress`;
     case 'ready': return `agex task exec ${id} --cmd "..." --wait`;
+    case 'retried': return null;
     default: return null;
   }
 }
@@ -131,6 +133,26 @@ export function formatStatusHuman(task: ServerAwareTask, logContent: string): st
   }
   lines.push('');
 
+  // Needs-input section
+  if (task.status === 'needs-input' && task.needsInput) {
+    lines.push(sectionHeader('Waiting for Input'));
+    lines.push(`  ${yellow('?')} ${bold(task.needsInput.question)}`);
+    if (task.needsInput.options) {
+      for (const opt of task.needsInput.options) {
+        lines.push(`    ${dim('•')} ${opt}`);
+      }
+    }
+    if (task.needsInput.context) {
+      lines.push(`  ${dim(task.needsInput.context)}`);
+    }
+    lines.push('');
+  }
+
+  // Retry lineage
+  if (task.retriedFrom) {
+    lines.push(`  ${dim('retry of:')} ${task.retriedFrom}${task.retryDepth ? ` (depth: ${task.retryDepth})` : ''}`);
+  }
+
   // Changes section
   if (task.diff_stats && task.diff_stats.files_changed > 0) {
     lines.push(sectionHeader('Changes'));
@@ -143,9 +165,25 @@ export function formatStatusHuman(task: ServerAwareTask, logContent: string): st
     lines.push(sectionHeader('Verification'));
     for (const check of task.verification.checks) {
       lines.push(`  ${checkSymbol(check.passed)} ${check.cmd}  ${dim(`(${check.duration_s}s)`)}`);
-      if (!check.passed && check.output) {
-        const firstLine = check.output.trim().split('\n')[0];
-        lines.push(`    ${red(firstLine)}`);
+      if (!check.passed) {
+        if (check.parsed && check.parsed.length > 0) {
+          for (const err of check.parsed.slice(0, 5)) {
+            let errLine = `    ${red('→')} `;
+            if (err.file) errLine += `${err.file}`;
+            if (err.line) errLine += `:${err.line}`;
+            if (err.file || err.line) errLine += ` — `;
+            errLine += err.message;
+            lines.push(errLine);
+            if (err.expected) lines.push(`      ${dim('expected:')} ${err.expected}`);
+            if (err.actual) lines.push(`      ${dim('actual:')}   ${err.actual}`);
+          }
+          if (check.parsed.length > 5) {
+            lines.push(`    ${dim(`... and ${check.parsed.length - 5} more errors`)}`);
+          }
+        } else if (check.output) {
+          const firstLine = check.output.trim().split('\n')[0];
+          lines.push(`    ${red(firstLine)}`);
+        }
       }
     }
     lines.push('');
@@ -426,6 +464,38 @@ export function formatTaskStartHuman(data: TaskStartResult): string {
 
 export function formatTaskStopHuman(data: TaskStopResult): string {
   return card('dim', [`${dim('○')} Server stopped`]);
+}
+
+export function formatRetryHuman(task: TaskRecord): string {
+  const color = cardColorForStatus(task.status);
+  const lines: string[] = [];
+  lines.push(card(color, [
+    `${bold('↻ Retry created')}  ${blue(task.id)}`,
+    `Retry of ${dim(task.retriedFrom || '?')} (depth: ${task.retryDepth || 1})`,
+    task.prompt.length > 60 ? task.prompt.slice(0, 57) + '...' : task.prompt,
+  ]));
+  const hint = nextActionForStatus(task.id, task.status);
+  if (hint) lines.push(nextAction(hint));
+  return lines.join('\n');
+}
+
+export function formatRetryDryRunHuman(prompt: string): string {
+  const lines: string[] = [];
+  lines.push(sectionHeader('Retry Prompt Preview'));
+  lines.push('');
+  for (const line of prompt.split('\n')) {
+    lines.push(`  ${line}`);
+  }
+  lines.push('');
+  lines.push(dim('No task created. Remove --dry-run to execute.'));
+  return lines.join('\n');
+}
+
+export function formatRespondHuman(task: TaskRecord): string {
+  const color = cardColorForStatus(task.status);
+  return card(color, [
+    `${bold('Answer saved.')} Resuming task ${blue(task.id)}...`,
+  ]);
 }
 
 export function formatErrorHuman(message: string): string {
