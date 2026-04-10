@@ -263,7 +263,7 @@ export function formatDiffHuman(data: { id: string; prompt: string; branch?: str
 
 // --- Verify ---
 
-export function formatVerifyHuman(data: { id: string; checks: VerificationCheck[] }): string {
+export function formatVerifyHuman(data: { id: string; passed?: boolean; summary?: string; checks: VerificationCheck[] }): string {
   const lines: string[] = [];
 
   lines.push(`${blue(data.id)} · verification`);

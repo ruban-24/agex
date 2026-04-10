@@ -341,6 +341,9 @@ program
       requireInit(root);
       const result = await verifyCommand(root, taskId);
       console.log(opts.human ? humanOutput(formatVerifyHuman(result)) : formatOutput(result, false));
+      if (!result.passed) {
+        process.exit(EXIT_CODES.VERIFICATION_FAILED);
+      }
     } catch (err) {
       handleError(err, EXIT_CODES.VERIFICATION_FAILED);
     }
