@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { taskCreateCommand } from '../../src/cli/commands/task-create.js';
 import { taskExecCommand } from '../../src/cli/commands/task-exec.js';
-import { respondCommand } from '../../src/cli/commands/respond.js';
+import { answerCommand } from '../../src/cli/commands/answer.js';
 import { TaskManager } from '../../src/core/task-manager.js';
 import { createTestRepoWithAgex, type TestRepo } from '../helpers/test-repo.js';
 
@@ -49,8 +49,8 @@ describe('needs-input workflow integration', () => {
     expect(paused!.needsInput!.question).toBe('Use JWT or sessions?');
 
     // Step 2: Respond — agent completes successfully this time
-    await respondCommand(repo.path, task.id, {
-      answer: 'jwt',
+    await answerCommand(repo.path, task.id, {
+      text: 'jwt',
       cmd: 'echo "using jwt"',
       wait: true,
     });

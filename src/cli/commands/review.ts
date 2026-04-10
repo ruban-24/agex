@@ -3,7 +3,7 @@ import { Reviewer } from '../../core/reviewer.js';
 import { AgexError } from '../../errors.js';
 import type { CommitLogEntry, FileStats } from '../../core/reviewer.js';
 
-export interface DiffResult {
+export interface ReviewResult {
   id: string;
   prompt: string;
   branch: string;
@@ -15,7 +15,7 @@ export interface DiffResult {
   files: FileStats[];
 }
 
-export async function diffCommand(repoRoot: string, taskId: string): Promise<DiffResult> {
+export async function reviewCommand(repoRoot: string, taskId: string): Promise<ReviewResult> {
   const tm = new TaskManager(repoRoot);
   const reviewer = new Reviewer(repoRoot);
 

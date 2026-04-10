@@ -5,13 +5,13 @@ import {
   formatListHuman,
   formatStatusHuman,
   formatSummaryHuman,
-  formatDiffHuman,
+  formatReviewHuman,
   formatVerifyHuman,
   formatCompareHuman,
   formatInitHuman,
   formatTaskCreateHuman,
-  formatMergeHuman,
-  formatDiscardHuman,
+  formatAcceptHuman,
+  formatRejectHuman,
   formatCleanHuman,
   formatRunHuman,
   formatTaskExecHuman,
@@ -20,7 +20,7 @@ import {
   formatErrorHuman,
   formatRetryHuman,
   formatRetryDryRunHuman,
-  formatRespondHuman,
+  formatAnswerHuman,
 } from '../../../src/cli/format/human.js';
 import type { TaskRecord } from '../../../src/types.js';
 
@@ -83,7 +83,7 @@ describe('formatStatusHuman', () => {
   it('shows next action hint for completed task', () => {
     const task = makeTask({ status: 'completed' });
     const result = stripAnsi(formatStatusHuman(task, ''));
-    expect(result).toContain('agex merge abc123');
+    expect(result).toContain('agex accept abc123');
   });
 
   it('includes log tail when provided', () => {
@@ -124,7 +124,7 @@ describe('formatSummaryHuman', () => {
   });
 });
 
-describe('formatDiffHuman', () => {
+describe('formatReviewHuman', () => {
   it('shows commits and file list', () => {
     const data = {
       id: 'abc123',
@@ -143,7 +143,7 @@ describe('formatDiffHuman', () => {
         { file: 'src/auth.test.ts', insertions: 12, deletions: 0, status: 'A' },
       ],
     };
-    const result = stripAnsi(formatDiffHuman(data));
+    const result = stripAnsi(formatReviewHuman(data));
     expect(result).toContain('abc123');
     expect(result).toContain('COMMITS');
     expect(result).toContain('bae224d');
@@ -231,7 +231,7 @@ describe('action formatters', () => {
     const task = makeTask({ status: 'ready' });
     const result = stripAnsi(formatTaskCreateHuman(task));
     expect(result).toContain('Created task abc123');
-    expect(result).toContain('agex task exec');
+    expect(result).toContain('agex exec');
   });
 
   it('formatTaskCreateHuman shows issue info when present', () => {
@@ -245,7 +245,7 @@ describe('action formatters', () => {
   });
 
   it('formatMergeHuman shows merge result with target branch', () => {
-    const result = stripAnsi(formatMergeHuman({ id: 'abc123', merged: true, strategy: 'fast-forward', commit: 'bae224d', targetBranch: 'main' }));
+    const result = stripAnsi(formatAcceptHuman({ id: 'abc123', merged: true, strategy: 'fast-forward', commit: 'bae224d', targetBranch: 'main' }));
     expect(result).toContain('Merged abc123');
     expect(result).toContain('into main');
     expect(result).toContain('fast-forward');
@@ -253,14 +253,14 @@ describe('action formatters', () => {
   });
 
   it('formatMergeHuman falls back to current branch when targetBranch missing', () => {
-    const result = stripAnsi(formatMergeHuman({ id: 'abc123', merged: true, strategy: 'fast-forward', commit: 'bae224d' }));
+    const result = stripAnsi(formatAcceptHuman({ id: 'abc123', merged: true, strategy: 'fast-forward', commit: 'bae224d' }));
     expect(result).toContain('Merged abc123');
     expect(result).toContain('into current branch');
   });
 
   it('formatDiscardHuman shows discard confirmation', () => {
     const task = makeTask({ status: 'discarded' });
-    const result = stripAnsi(formatDiscardHuman(task));
+    const result = stripAnsi(formatRejectHuman(task));
     expect(result).toContain('Discarded abc123');
     expect(result).toContain('Fix the login bug');
   });
@@ -276,7 +276,7 @@ describe('action formatters', () => {
     const result = stripAnsi(formatRunHuman(task));
     expect(result).toContain('completed');
     expect(result).toContain('abc123');
-    expect(result).toContain('agex diff');
+    expect(result).toContain('agex review');
   });
 
   it('formatTaskExecHuman shows running task for non-blocking', () => {
@@ -365,7 +365,7 @@ describe('v0.2.0 formatters', () => {
       created_at: new Date().toISOString(),
       env: { AGEX_TASK_ID: 'abc123', AGEX_WORKTREE: '.agex/tasks/abc123', AGEX_PORT: '3001' },
     };
-    const result = formatRespondHuman(task);
+    const result = formatAnswerHuman(task);
     expect(result).toContain('Answer saved');
     expect(result).toContain('abc123');
   });

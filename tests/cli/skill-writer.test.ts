@@ -35,8 +35,8 @@ describe('SKILL_CONTENT', () => {
     expect(SKILL_CONTENT).toContain('agex retry');
   });
 
-  it('contains respond command reference', () => {
-    expect(SKILL_CONTENT).toContain('agex respond');
+  it('contains answer command reference', () => {
+    expect(SKILL_CONTENT).toContain('agex answer');
   });
 
   it('contains needs-input workflow section', () => {
@@ -70,7 +70,7 @@ describe('writeSkillFiles', () => {
 
     const instructions = await readFile(join(repo.path, 'CLAUDE.md'), 'utf-8');
     expect(instructions).toContain('## agex');
-    expect(instructions).toContain('agex task create');
+    expect(instructions).toContain('agex create');
   });
 
   it('writes skill files for multiple agents with shared AGENTS.md', async () => {

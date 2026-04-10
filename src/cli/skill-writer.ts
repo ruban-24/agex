@@ -29,7 +29,7 @@ const INSTRUCTION_BLOCK = `
 
 This repo uses agex for worktree-isolated task management.
 
-**All non-trivial work MUST go through \`agex task create\`.** NEVER edit code files directly on main unless it is a single-file trivial fix (typo, config tweak, one-line change).
+**All non-trivial work MUST go through \`agex create\`.** NEVER edit code files directly on main unless it is a single-file trivial fix (typo, config tweak, one-line change).
 
 If you are about to edit more than one file, STOP — create an agex task first. No exceptions, no rationalizing ("the files overlap", "it's easier sequentially", "I'll just do it quickly"). Those are exactly the cases where isolation prevents mistakes.
 
@@ -64,7 +64,7 @@ You have access to \`agex\`, a CLI tool for managing isolated git worktrees. Eac
 ### Step 1: Create a task
 
 \`\`\`bash
-agex task create --prompt "Implement caching using Redis"
+agex create --prompt "Implement caching using Redis"
 \`\`\`
 
 This returns JSON with \`id\` and \`worktree\` (the directory path).
@@ -89,8 +89,8 @@ Runs the configured verification commands (tests, lint, build). Check the output
 ### Step 4: Review and merge
 
 \`\`\`bash
-agex diff <id>         # See what changed
-agex merge <id>        # Merge into current branch
+agex review <id>       # See what changed
+agex accept <id>       # Merge into current branch
 agex clean             # Remove finished task worktrees
 \`\`\`
 
@@ -100,8 +100,8 @@ When the user wants you to explore alternatives:
 
 \`\`\`bash
 # Create one task per approach
-agex task create --prompt "Approach A: use Redis"
-agex task create --prompt "Approach B: use in-memory LRU"
+agex create --prompt "Approach A: use Redis"
+agex create --prompt "Approach B: use in-memory LRU"
 
 # Work on each — cd into each worktree and implement
 # Then verify both
@@ -112,18 +112,18 @@ agex verify <id2>
 agex compare <id1> <id2>
 
 # Present results to the user, merge the winner
-agex merge <winner-id>
-agex discard <loser-id>
+agex accept <winner-id>
+agex reject <loser-id>
 agex clean
 \`\`\`
 
 ## When Things Fail
 
 \`\`\`bash
-agex log <id>              # See what went wrong
+agex output <id>           # See what went wrong
 agex retry <id> --feedback "Fix X because Y"  # Retry with context
 # Or if the approach is fundamentally wrong:
-agex discard <id>          # Throw it away and start fresh
+agex reject <id>           # Throw it away and start fresh
 \`\`\`
 
 ## When You're Stuck
@@ -133,24 +133,24 @@ If you need a human decision before continuing:
 1. Write \`.agex/needs-input.json\` in your worktree:
    \`{"question": "JWT or sessions?", "options": ["jwt", "sessions"]}\`
 2. Exit — agex pauses the task
-3. Human responds with \`agex respond <id> --answer "jwt"\`
+3. Human responds with \`agex answer <id> --text "jwt"\`
 4. You're re-invoked with the answer in your prompt
 
 ## Command Reference
 
 | Command | Purpose |
 |---------|---------|
-| \`agex task create --prompt <text>\` | Create isolated task — returns \`id\` and \`worktree\` path |
-| \`agex task status <id>\` | Get task details |
+| \`agex create --prompt <text>\` | Create isolated task — returns \`id\` and \`worktree\` path |
+| \`agex status <id>\` | Get task details |
 | \`agex list\` | List all tasks |
 | \`agex verify <id>\` | Run verification checks (tests, lint, build) |
-| \`agex diff <id>\` | Show changes vs base branch |
+| \`agex review <id>\` | Show changes vs base branch |
 | \`agex compare <id1> <id2> [...]\` | Side-by-side task comparison |
-| \`agex merge <id>\` | Merge task branch into current branch |
-| \`agex discard <id>\` | Remove task worktree and branch |
+| \`agex accept <id>\` | Merge task branch into current branch |
+| \`agex reject <id>\` | Remove task worktree and branch |
 | \`agex clean\` | Clean up all finished tasks |
 | \`agex retry <id> --feedback <text>\` | Retry failed task with enhanced prompt |
-| \`agex respond <id> --answer <text>\` | Answer a task's question and resume |
+| \`agex answer <id> --text <text>\` | Answer a task's question and resume |
 
 All commands output JSON — parse the output to get task IDs, worktree paths, and status.
 
@@ -158,18 +158,18 @@ All commands output JSON — parse the output to get task IDs, worktree paths, a
 
 \`\`\`
 pending -> provisioning -> ready -> running -> verifying -> completed -> merged
-                                            -> needs-input -> running (after respond)
+                                            -> needs-input -> running (after answer)
                                                verifying -> failed -> retried (after retry)
 \`\`\`
 
 ## Key Details
 
-- \`task create\` returns \`{ "id": "...", "worktree": "/path/to/worktree", ... }\` — use the \`worktree\` path to \`cd\` into
-- Always \`verify\` before \`merge\`
+- \`create\` returns \`{ "id": "...", "worktree": "/path/to/worktree", ... }\` — use the \`worktree\` path to \`cd\` into
+- Always \`verify\` before \`accept\`
 - Always \`compare\` when you have multiple tasks
-- Always \`clean\` after merging/discarding
+- Always \`clean\` after accepting/rejecting
 - Merge conflicts auto-abort and preserve the worktree so you can fix and retry
-- \`cd\` back to the original repo directory before running \`merge\` or other agex commands
+- \`cd\` back to the original repo directory before running \`accept\` or other agex commands
 - Run individual tests directly during development, but use \`agex verify\` for final validation — it runs all checks and records results
 `;
 

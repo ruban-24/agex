@@ -6,7 +6,7 @@ import { WorkspaceManager } from '../../core/workspace-manager.js';
 import { worktreePath, EXIT_CODES } from '../../constants.js';
 import { AgexError } from '../../errors.js';
 
-export interface MergeResult {
+export interface AcceptResult {
   id: string;
   merged: boolean;
   strategy?: string;
@@ -15,7 +15,7 @@ export interface MergeResult {
   auto_committed?: boolean;
 }
 
-export async function mergeCommand(repoRoot: string, taskId: string): Promise<MergeResult> {
+export async function acceptCommand(repoRoot: string, taskId: string): Promise<AcceptResult> {
   const tm = new TaskManager(repoRoot);
   const reviewer = new Reviewer(repoRoot);
   const wm = new WorkspaceManager(repoRoot);
@@ -31,7 +31,7 @@ export async function mergeCommand(repoRoot: string, taskId: string): Promise<Me
   const mergeableStatuses = ['ready', 'completed', 'failed'];
   if (!mergeableStatuses.includes(task.status)) {
     throw new AgexError(`Cannot merge task in '${task.status}' status (must be: ${mergeableStatuses.join(', ')})`, {
-      suggestion: `Run 'agex task status ${taskId}' for details`,
+      suggestion: `Run 'agex status ${taskId}' for details`,
     });
   }
 

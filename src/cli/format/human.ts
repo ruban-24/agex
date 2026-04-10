@@ -71,12 +71,12 @@ function taskCardLine(task: ServerAwareTask): string {
 
 function nextActionForStatus(id: string, status: TaskStatus): string | null {
   switch (status) {
-    case 'completed': return `agex diff ${id} to review, agex merge ${id} to accept`;
-    case 'failed': return `agex retry ${id} --feedback "..." to retry, agex log ${id} to see output`;
-    case 'errored': return `agex retry ${id} --feedback "..." to retry, agex log ${id} to see output`;
-    case 'needs-input': return `agex respond ${id} --answer "..." to continue`;
-    case 'running': return `agex task status ${id} to check progress`;
-    case 'ready': return `agex task exec ${id} --cmd "..." --wait`;
+    case 'completed': return `agex review ${id} to review, agex accept ${id} to accept`;
+    case 'failed': return `agex retry ${id} --feedback "..." to retry, agex output ${id} to see output`;
+    case 'errored': return `agex retry ${id} --feedback "..." to retry, agex output ${id} to see output`;
+    case 'needs-input': return `agex answer ${id} --text "..." to continue`;
+    case 'running': return `agex status ${id} to check progress`;
+    case 'ready': return `agex exec ${id} --cmd "..." --wait`;
     case 'retried': return null;
     default: return null;
   }
@@ -233,7 +233,7 @@ export function formatSummaryHuman(data: { total: number; completed: number; fai
 
 // --- Diff ---
 
-export function formatDiffHuman(data: { id: string; prompt: string; branch?: string; files_changed: number; insertions: number; deletions: number; commits: CommitLogEntry[]; files: FileStats[] }): string {
+export function formatReviewHuman(data: { id: string; prompt: string; branch?: string; files_changed: number; insertions: number; deletions: number; commits: CommitLogEntry[]; files: FileStats[] }): string {
   const lines: string[] = [];
 
   lines.push(`${blue(data.id)} · ${data.prompt} · ${diffStats(data.insertions, data.deletions)} across ${data.files_changed} files · ${data.commits.length} commits`);
@@ -379,11 +379,11 @@ export function formatTaskCreateHuman(task: TaskRecord): string {
     cardLines.push(dim(`issue: #${task.issue.number} \u2014 ${task.issue.title}`));
   }
   lines.push(card('green', cardLines));
-  lines.push(nextAction(`agex task exec ${task.id} --cmd "..." --wait`));
+  lines.push(nextAction(`agex exec ${task.id} --cmd "..." --wait`));
   return lines.join('\n');
 }
 
-export function formatMergeHuman(data: { id: string; merged: boolean; strategy?: string; commit?: string; targetBranch?: string; auto_committed?: boolean }): string {
+export function formatAcceptHuman(data: { id: string; merged: boolean; strategy?: string; commit?: string; targetBranch?: string; auto_committed?: boolean }): string {
   const lines: string[] = [];
   const cardLines = [
     `${green('\u2713')} Merged ${bold(blue(data.id))} into ${data.targetBranch || 'current branch'}`,
@@ -397,7 +397,7 @@ export function formatMergeHuman(data: { id: string; merged: boolean; strategy?:
   return lines.join('\n');
 }
 
-export function formatDiscardHuman(task: TaskRecord & { uncommitted_changes?: boolean }): string {
+export function formatRejectHuman(task: TaskRecord & { uncommitted_changes?: boolean }): string {
   const line = `${dim('\u25CB')} Discarded ${blue(task.id)} \u2014 ${task.prompt}`;
   if (task.uncommitted_changes) {
     return card('dim', [line, dim('\u26a0 uncommitted changes were discarded')]);
@@ -498,7 +498,7 @@ export function formatRetryDryRunHuman(prompt: string): string {
   return lines.join('\n');
 }
 
-export function formatRespondHuman(task: TaskRecord): string {
+export function formatAnswerHuman(task: TaskRecord): string {
   const color = cardColorForStatus(task.status);
   return card(color, [
     `${bold('Answer saved.')} Resuming task ${blue(task.id)}...`,

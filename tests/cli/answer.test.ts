@@ -4,10 +4,10 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { taskCreateCommand } from '../../src/cli/commands/task-create.js';
 import { TaskManager } from '../../src/core/task-manager.js';
-import { respondCommand } from '../../src/cli/commands/respond.js';
+import { answerCommand } from '../../src/cli/commands/answer.js';
 import { createTestRepoWithAgex, type TestRepo } from '../helpers/test-repo.js';
 
-describe('respondCommand', () => {
+describe('answerCommand', () => {
   let repo: TestRepo;
 
   beforeEach(async () => {
@@ -37,7 +37,7 @@ describe('respondCommand', () => {
     const task = await taskCreateCommand(repo.path, { prompt: 'test' });
 
     await expect(
-      respondCommand(repo.path, task.id, { answer: 'jwt', cmd: 'echo ok' })
+      answerCommand(repo.path, task.id, { text: 'jwt', cmd: 'echo ok' })
     ).rejects.toThrow(/needs-input/i);
   });
 
@@ -52,8 +52,8 @@ describe('respondCommand', () => {
     taskData!.cmd = 'echo "working"';
     await tm.saveTask(taskData!);
 
-    const result = await respondCommand(repo.path, task.id, {
-      answer: 'jwt',
+    const result = await answerCommand(repo.path, task.id, {
+      text: 'jwt',
       cmd: 'echo "continuing"',
       wait: true,
     });

@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { mergeCommand } from '../../src/cli/commands/merge.js';
+import { acceptCommand } from '../../src/cli/commands/accept.js';
 import { taskCreateCommand } from '../../src/cli/commands/task-create.js';
 import { createTestRepoWithAgex, type TestRepo } from '../helpers/test-repo.js';
 
-describe('mergeCommand', () => {
+describe('acceptCommand', () => {
   let repo: TestRepo;
 
   beforeEach(async () => {
@@ -44,7 +44,7 @@ describe('mergeCommand', () => {
     await writeFile(join(wtPath, 'merged.ts'), 'export const merged = true;\n');
     execSync('git add . && git commit -m "add merged file"', { cwd: wtPath, stdio: 'ignore' });
 
-    const result = await mergeCommand(repo.path, task.id);
+    const result = await acceptCommand(repo.path, task.id);
 
     expect(result.id).toBe(task.id);
     expect(result.merged).toBe(true);
@@ -63,7 +63,7 @@ describe('mergeCommand', () => {
     const wtPath = join(repo.path, '.agex', 'tasks', task.id);
     await writeFile(join(wtPath, 'uncommitted.ts'), 'export const uncommitted = true;\n');
 
-    const result = await mergeCommand(repo.path, task.id);
+    const result = await acceptCommand(repo.path, task.id);
 
     expect(result.id).toBe(task.id);
     expect(result.merged).toBe(true);
@@ -84,7 +84,7 @@ describe('mergeCommand', () => {
     await writeFile(join(wtPath, 'committed.ts'), 'export const committed = true;\n');
     execSync('git add . && git commit -m "manual commit"', { cwd: wtPath, stdio: 'ignore' });
 
-    const result = await mergeCommand(repo.path, task.id);
+    const result = await acceptCommand(repo.path, task.id);
 
     expect(result.merged).toBe(true);
     expect(result.auto_committed).toBeUndefined();
@@ -101,7 +101,7 @@ describe('mergeCommand', () => {
     // Dirty the main working tree
     await writeFile(join(repo.path, 'dirty.txt'), 'uncommitted');
 
-    await expect(mergeCommand(repo.path, task.id)).rejects.toThrow('uncommitted changes');
+    await expect(acceptCommand(repo.path, task.id)).rejects.toThrow('uncommitted changes');
 
     // Clean up
     const { unlink } = await import('node:fs/promises');
@@ -120,7 +120,7 @@ describe('mergeCommand', () => {
     await writeFile(join(repo.path, 'README.md'), '# Modified on main\n');
     execSync('git add . && git commit -m "main modifies readme"', { cwd: repo.path, stdio: 'ignore' });
 
-    const result = await mergeCommand(repo.path, task.id);
+    const result = await acceptCommand(repo.path, task.id);
 
     expect(result.merged).toBe(false);
     // Worktree should be restored

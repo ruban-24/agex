@@ -6,10 +6,10 @@ import { initCommand } from '../../src/cli/commands/init.js';
 import { taskCreateCommand } from '../../src/cli/commands/task-create.js';
 import { runCommand } from '../../src/cli/commands/run.js';
 import { verifyCommand } from '../../src/cli/commands/verify.js';
-import { diffCommand } from '../../src/cli/commands/diff.js';
+import { reviewCommand } from '../../src/cli/commands/review.js';
 import { compareCommand } from '../../src/cli/commands/compare.js';
-import { mergeCommand } from '../../src/cli/commands/merge.js';
-import { discardCommand } from '../../src/cli/commands/discard.js';
+import { acceptCommand } from '../../src/cli/commands/accept.js';
+import { rejectCommand } from '../../src/cli/commands/reject.js';
 import { cleanCommand } from '../../src/cli/commands/clean.js';
 import { listCommand } from '../../src/cli/commands/list.js';
 import { summaryCommand } from '../../src/cli/commands/summary.js';
@@ -67,11 +67,11 @@ describe('Full Workflow Integration', () => {
     expect(verifyResult.checks[0].passed).toBe(true);
 
     // Step 5: Diff
-    const diffResult = await diffCommand(repo.path, task.id);
+    const diffResult = await reviewCommand(repo.path, task.id);
     expect(diffResult.files_changed).toBe(1);
 
     // Step 6: Merge
-    const mergeResult = await mergeCommand(repo.path, task.id);
+    const mergeResult = await acceptCommand(repo.path, task.id);
     expect(mergeResult.merged).toBe(true);
 
     // Verify file is on main branch
@@ -114,8 +114,8 @@ describe('Full Workflow Integration', () => {
     expect(summary.total).toBe(2);
 
     // Discard one, merge the other
-    await discardCommand(repo.path, task2.id);
-    const merged = await mergeCommand(repo.path, task1.id);
+    await rejectCommand(repo.path, task2.id);
+    const merged = await acceptCommand(repo.path, task1.id);
     expect(merged.merged).toBe(true);
   });
 

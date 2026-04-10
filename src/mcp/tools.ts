@@ -6,18 +6,18 @@ import { taskExecCommand } from '../cli/commands/task-exec.js';
 import { taskStatusCommand } from '../cli/commands/task-status.js';
 import { runCommand } from '../cli/commands/run.js';
 import { listCommand } from '../cli/commands/list.js';
-import { logCommand } from '../cli/commands/log.js';
+import { outputCommand } from '../cli/commands/output.js';
 import { verifyCommand } from '../cli/commands/verify.js';
-import { diffCommand } from '../cli/commands/diff.js';
+import { reviewCommand } from '../cli/commands/review.js';
 import { compareCommand } from '../cli/commands/compare.js';
 import { summaryCommand } from '../cli/commands/summary.js';
-import { mergeCommand } from '../cli/commands/merge.js';
-import { discardCommand } from '../cli/commands/discard.js';
+import { acceptCommand } from '../cli/commands/accept.js';
+import { rejectCommand } from '../cli/commands/reject.js';
 import { cleanCommand } from '../cli/commands/clean.js';
 import { taskStartCommand } from '../cli/commands/task-start.js';
 import { taskStopCommand } from '../cli/commands/task-stop.js';
 import { retryCommand } from '../cli/commands/retry.js';
-import { respondCommand } from '../cli/commands/respond.js';
+import { answerCommand } from '../cli/commands/answer.js';
 import { withAbsoluteWorktree, withAbsoluteWorktrees } from '../cli/enrich.js';
 
 function getRepoRoot(): string {
@@ -46,7 +46,7 @@ export function getTools(): ToolDefinition[] {
       },
     },
     {
-      name: 'agex_task_create',
+      name: 'agex_create',
       description: 'Create a new task with an isolated git worktree workspace',
       inputSchema: {
         prompt: z.string().optional().describe('Description of the task (required unless --issue is provided)'),
@@ -63,7 +63,7 @@ export function getTools(): ToolDefinition[] {
       },
     },
     {
-      name: 'agex_task_exec',
+      name: 'agex_exec',
       description: 'Execute a command inside a task worktree',
       inputSchema: {
         id: z.string().describe('Task ID'),
@@ -79,7 +79,7 @@ export function getTools(): ToolDefinition[] {
       },
     },
     {
-      name: 'agex_task_start',
+      name: 'agex_start',
       description: 'Start the configured dev server in a task worktree',
       inputSchema: {
         task_id: z.string().describe('Task ID'),
@@ -89,7 +89,7 @@ export function getTools(): ToolDefinition[] {
       },
     },
     {
-      name: 'agex_task_stop',
+      name: 'agex_stop',
       description: 'Stop the dev server running in a task worktree',
       inputSchema: {
         task_id: z.string().describe('Task ID'),
@@ -99,13 +99,13 @@ export function getTools(): ToolDefinition[] {
       },
     },
     {
-      name: 'agex_log',
+      name: 'agex_output',
       description: 'Show captured agent output for a task',
       inputSchema: {
         id: z.string().describe('Task ID'),
       },
       handler: async (args) => {
-        return await logCommand(getRepoRoot(), args.id as string);
+        return await outputCommand(getRepoRoot(), args.id as string);
       },
     },
     {
@@ -126,7 +126,7 @@ export function getTools(): ToolDefinition[] {
       },
     },
     {
-      name: 'agex_task_status',
+      name: 'agex_status',
       description: 'Get detailed status for a task',
       inputSchema: {
         id: z.string().describe('Task ID'),
@@ -147,13 +147,13 @@ export function getTools(): ToolDefinition[] {
       },
     },
     {
-      name: 'agex_diff',
+      name: 'agex_review',
       description: 'Show diff of changes in a task',
       inputSchema: {
         id: z.string().describe('Task ID'),
       },
       handler: async (args) => {
-        return await diffCommand(getRepoRoot(), args.id as string);
+        return await reviewCommand(getRepoRoot(), args.id as string);
       },
     },
     {
@@ -175,23 +175,23 @@ export function getTools(): ToolDefinition[] {
       },
     },
     {
-      name: 'agex_merge',
+      name: 'agex_accept',
       description: 'Merge a task branch into the current branch',
       inputSchema: {
-        id: z.string().describe('Task ID to merge'),
+        id: z.string().describe('Task ID to accept'),
       },
       handler: async (args) => {
-        return await mergeCommand(getRepoRoot(), args.id as string);
+        return await acceptCommand(getRepoRoot(), args.id as string);
       },
     },
     {
-      name: 'agex_discard',
-      description: 'Discard a task (remove worktree and branch)',
+      name: 'agex_reject',
+      description: 'Reject a task (remove worktree and branch)',
       inputSchema: {
-        id: z.string().describe('Task ID to discard'),
+        id: z.string().describe('Task ID to reject'),
       },
       handler: async (args) => {
-        const result = await discardCommand(getRepoRoot(), args.id as string);
+        const result = await rejectCommand(getRepoRoot(), args.id as string);
         return withAbsoluteWorktree(result, getRepoRoot());
       },
     },
@@ -232,17 +232,17 @@ export function getTools(): ToolDefinition[] {
       },
     },
     {
-      name: 'agex_respond',
+      name: 'agex_answer',
       description: 'Answer a question from a task in needs-input state. Re-executes the agent with Q&A context.',
       inputSchema: {
-        taskId: z.string().describe('ID of the task to respond to'),
-        answer: z.string().describe('Your answer to the task question'),
+        taskId: z.string().describe('ID of the task to answer'),
+        text: z.string().describe('Your answer to the task question'),
         cmd: z.string().optional().describe('Agent command to re-run'),
         wait: z.boolean().optional().describe('Wait for agent to complete'),
       },
       handler: async (args) => {
-        const result = await respondCommand(getRepoRoot(), args.taskId as string, {
-          answer: args.answer as string,
+        const result = await answerCommand(getRepoRoot(), args.taskId as string, {
+          text: args.text as string,
           cmd: args.cmd as string | undefined,
           wait: args.wait as boolean | undefined,
         });

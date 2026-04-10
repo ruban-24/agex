@@ -36,7 +36,7 @@ export async function taskStartCommand(
     throw new AgexError(
       `Cannot start server for task in '${task.status}' status. ` +
       `Task must be in one of: ${validStatuses.join(', ')}`,
-      { suggestion: `Run 'agex task status ${taskId}' for details` },
+      { suggestion: `Run 'agex status ${taskId}' for details` },
     );
   }
 

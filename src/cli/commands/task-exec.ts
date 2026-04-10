@@ -55,13 +55,13 @@ export async function taskExecCommand(
   // Validate current status before transitioning
   if (task.status === 'running') {
     throw new AgexError(`Task ${taskId} is already running (pid: ${task.pid || 'unknown'})`, {
-      suggestion: `Run 'agex task status ${taskId}' for details`,
+      suggestion: `Run 'agex status ${taskId}' for details`,
     });
   }
   if (task.status !== 'ready') {
     throw new AgexError(
       `Cannot execute task in '${task.status}' status. Task must be 'ready'.`,
-      { suggestion: `Run 'agex task status ${taskId}' for details` },
+      { suggestion: `Run 'agex status ${taskId}' for details` },
     );
   }
 

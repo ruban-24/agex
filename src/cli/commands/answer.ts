@@ -9,13 +9,13 @@ import { Reviewer } from '../../core/reviewer.js';
 import { AgexError } from '../../errors.js';
 import type { TaskRecord, QAPair } from '../../types.js';
 
-export interface RespondOptions {
-  answer: string;
+export interface AnswerOptions {
+  text: string;
   cmd?: string;
   wait?: boolean;
 }
 
-function buildRespondPrompt(task: TaskRecord, answer: string): string {
+function buildAnswerPrompt(task: TaskRecord, answer: string): string {
   const responses: QAPair[] = [
     ...(task.responses || []),
     {
@@ -34,10 +34,10 @@ function buildRespondPrompt(task: TaskRecord, answer: string): string {
   return prompt;
 }
 
-export async function respondCommand(
+export async function answerCommand(
   repoRoot: string,
   taskId: string,
-  options: RespondOptions
+  options: AnswerOptions
 ): Promise<TaskRecord> {
   const tm = new TaskManager(repoRoot);
   const task = await tm.getTask(taskId);
@@ -51,7 +51,7 @@ export async function respondCommand(
   if (task.status !== 'needs-input') {
     throw new AgexError(
       `Task ${taskId} is in '${task.status}' state, not 'needs-input'. Cannot respond.`,
-      { suggestion: `Run 'agex task status ${taskId}' for details` },
+      { suggestion: `Run 'agex status ${taskId}' for details` },
     );
   }
 
@@ -60,12 +60,12 @@ export async function respondCommand(
   }
 
   // Build enhanced prompt with Q&A history
-  const enhancedPrompt = buildRespondPrompt(task, options.answer);
+  const enhancedPrompt = buildAnswerPrompt(task, options.text);
 
   // Append to responses, clear needsInput
   const newQA: QAPair = {
     question: task.needsInput.question,
-    answer: options.answer,
+    answer: options.text,
     round: (task.responses?.length || 0) + 1,
   };
   const responses = [...(task.responses || []), newQA];

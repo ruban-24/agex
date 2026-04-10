@@ -4,7 +4,7 @@ import { ServerManager } from '../../core/server-manager.js';
 import { AgexError } from '../../errors.js';
 import type { TaskRecord } from '../../types.js';
 
-export async function discardCommand(
+export async function rejectCommand(
   repoRoot: string,
   taskId: string
 ): Promise<TaskRecord & { server_stopped?: boolean; uncommitted_changes?: boolean }> {
@@ -22,9 +22,9 @@ export async function discardCommand(
   const discardableStatuses = ['ready', 'completed', 'failed', 'errored'];
   if (!discardableStatuses.includes(task.status)) {
     throw new AgexError(
-      `Cannot discard task in '${task.status}' status. ` +
+      `Cannot reject task in '${task.status}' status. ` +
       `Task must be in one of: ${discardableStatuses.join(', ')}`,
-      { suggestion: `Run 'agex task status ${taskId}' for details` },
+      { suggestion: `Run 'agex status ${taskId}' for details` },
     );
   }
 

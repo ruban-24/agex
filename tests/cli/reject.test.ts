@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { access, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { discardCommand } from '../../src/cli/commands/discard.js';
+import { rejectCommand } from '../../src/cli/commands/reject.js';
 import { taskCreateCommand } from '../../src/cli/commands/task-create.js';
 import { createTestRepoWithAgex, type TestRepo } from '../helpers/test-repo.js';
 
-describe('discardCommand', () => {
+describe('rejectCommand', () => {
   let repo: TestRepo;
 
   beforeEach(async () => {
@@ -48,8 +48,8 @@ describe('discardCommand', () => {
     taskData!.status = 'running' as any;
     await tm.saveTask(taskData!);
 
-    await expect(discardCommand(repo.path, task.id)).rejects.toThrow(
-      /Cannot discard.*running/
+    await expect(rejectCommand(repo.path, task.id)).rejects.toThrow(
+      /Cannot reject.*running/
     );
 
     // Worktree should still exist
@@ -61,7 +61,7 @@ describe('discardCommand', () => {
     const task = await taskCreateCommand(repo.path, { prompt: 'discard test' });
     const wtPath = join(repo.path, '.agex', 'tasks', task.id);
 
-    const result = await discardCommand(repo.path, task.id);
+    const result = await rejectCommand(repo.path, task.id);
 
     expect(result.id).toBe(task.id);
     expect(result.status).toBe('discarded');
@@ -77,7 +77,7 @@ describe('discardCommand', () => {
     // Make uncommitted changes
     await writeFile(join(wtPath, 'dirty.ts'), 'export const dirty = true;\n');
 
-    const result = await discardCommand(repo.path, task.id);
+    const result = await rejectCommand(repo.path, task.id);
 
     expect(result.status).toBe('discarded');
     expect(result.uncommitted_changes).toBe(true);
@@ -86,7 +86,7 @@ describe('discardCommand', () => {
   it('does not warn when discarding clean worktree', async () => {
     const task = await taskCreateCommand(repo.path, { prompt: 'clean discard test' });
 
-    const result = await discardCommand(repo.path, task.id);
+    const result = await rejectCommand(repo.path, task.id);
 
     expect(result.status).toBe('discarded');
     expect(result.uncommitted_changes).toBeUndefined();
@@ -108,7 +108,7 @@ describe('discardCommand', () => {
     const sm = new ServerManager(repo.path);
     expect(sm.isProcessAlive(startResult.server_pid)).toBe(true);
 
-    const result = await discardCommand(repo.path, task.id);
+    const result = await rejectCommand(repo.path, task.id);
     expect(result.status).toBe('discarded');
 
     // Server should be dead

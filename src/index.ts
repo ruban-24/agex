@@ -10,16 +10,16 @@ import { taskStatusCommand } from './cli/commands/task-status.js';
 import { taskExecCommand } from './cli/commands/task-exec.js';
 import { runCommand } from './cli/commands/run.js';
 import { listCommand } from './cli/commands/list.js';
-import { logCommand } from './cli/commands/log.js';
+import { outputCommand } from './cli/commands/output.js';
 import { summaryCommand } from './cli/commands/summary.js';
 import { verifyCommand } from './cli/commands/verify.js';
-import { diffCommand } from './cli/commands/diff.js';
+import { reviewCommand } from './cli/commands/review.js';
 import { compareCommand } from './cli/commands/compare.js';
-import { mergeCommand } from './cli/commands/merge.js';
-import { discardCommand } from './cli/commands/discard.js';
+import { acceptCommand } from './cli/commands/accept.js';
+import { rejectCommand } from './cli/commands/reject.js';
 import { cleanCommand } from './cli/commands/clean.js';
 import { retryCommand } from './cli/commands/retry.js';
-import { respondCommand } from './cli/commands/respond.js';
+import { answerCommand } from './cli/commands/answer.js';
 import { taskStartCommand } from './cli/commands/task-start.js';
 import { taskStopCommand } from './cli/commands/task-stop.js';
 import { withAbsoluteWorktree, withAbsoluteWorktrees } from './cli/enrich.js';
@@ -28,13 +28,13 @@ import {
   formatListHuman,
   formatStatusHuman,
   formatSummaryHuman,
-  formatDiffHuman,
+  formatReviewHuman,
   formatVerifyHuman,
   formatCompareHuman,
   formatInitHuman,
   formatTaskCreateHuman,
-  formatMergeHuman,
-  formatDiscardHuman,
+  formatAcceptHuman,
+  formatRejectHuman,
   formatCleanHuman,
   formatRunHuman,
   formatTaskExecHuman,
@@ -43,7 +43,7 @@ import {
   formatErrorHuman,
   formatRetryHuman,
   formatRetryDryRunHuman,
-  formatRespondHuman,
+  formatAnswerHuman,
 } from './cli/format/human.js';
 import { EXIT_CODES } from './constants.js';
 import { AgexError } from './errors.js';
@@ -146,109 +146,137 @@ program
     }
   });
 
-const taskCmd = program.command('task').description('Task management commands');
+const taskCmd = program.command('task').description('Task management commands (alias group)');
 
-taskCmd
-  .command('create')
-  .description('Create a new task with an isolated workspace')
-  .option('--prompt <prompt>', 'Description of the task')
-  .option('--issue <ref>', 'Create task from a GitHub issue (number, URL, or owner/repo#N)')
-  .option('--cmd <cmd>', 'Command to execute (optional)')
-  .option('-H, --human', 'Human-friendly output', false)
-  .action(async (opts) => {
-    try {
-      isHumanMode = opts.human;
-      const root = getRepoRoot();
-      requireInit(root);
-      const result = await taskCreateCommand(root, {
-        prompt: opts.prompt,
-        cmd: opts.cmd,
-        issue: opts.issue,
-      });
-      const enriched = withAbsoluteWorktree(result, root);
-      console.log(opts.human ? humanOutput(formatTaskCreateHuman(enriched)) : formatOutput(enriched, false));
-    } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
-    }
-  });
+// Factory functions to register task commands on both program (primary) and taskCmd (alias group)
 
-taskCmd
-  .command('status [id]')
-  .description('Get detailed status for a task (infers ID from cwd if inside a worktree)')
-  .option('-H, --human', 'Human-friendly output', false)
-  .action(async (id, opts) => {
-    try {
-      isHumanMode = opts.human;
-      const taskId = resolveTaskId(id);
-      const root = getRepoRoot();
-      requireInit(root);
-      const result = await taskStatusCommand(root, taskId);
-      const enriched = withAbsoluteWorktree(result, root);
-      if (opts.human) {
-        let logContent = '';
-        try { logContent = await logCommand(root, taskId); } catch {}
-        console.log(humanOutput(formatStatusHuman(enriched, logContent)));
-      } else {
-        console.log(formatOutput(enriched, false));
+function registerCreate(parent: Command): void {
+  parent
+    .command('create')
+    .description('Create a new task with an isolated workspace')
+    .option('--prompt <prompt>', 'Description of the task')
+    .option('--issue <ref>', 'Create task from a GitHub issue (number, URL, or owner/repo#N)')
+    .option('--cmd <cmd>', 'Command to execute (optional)')
+    .option('-H, --human', 'Human-friendly output', false)
+    .action(async (opts) => {
+      try {
+        isHumanMode = opts.human;
+        const root = getRepoRoot();
+        requireInit(root);
+        const result = await taskCreateCommand(root, {
+          prompt: opts.prompt,
+          cmd: opts.cmd,
+          issue: opts.issue,
+        });
+        const enriched = withAbsoluteWorktree(result, root);
+        console.log(opts.human ? humanOutput(formatTaskCreateHuman(enriched)) : formatOutput(enriched, false));
+      } catch (err) {
+        handleError(err, EXIT_CODES.WORKSPACE_ERROR);
       }
-    } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
-    }
-  });
+    });
+}
 
-taskCmd
-  .command('exec <id>')
-  .description('Execute a command inside a task worktree')
-  .requiredOption('--cmd <cmd>', 'Command to run')
-  .option('--wait', 'Wait for completion', false)
-  .option('-H, --human', 'Human-friendly output', false)
-  .action(async (id, opts) => {
-    try {
-      isHumanMode = opts.human;
-      const root = getRepoRoot();
-      requireInit(root);
-      const result = await taskExecCommand(root, id, {
-        cmd: opts.cmd,
-        wait: opts.wait,
-      });
-      const enriched = withAbsoluteWorktree(result, root);
-      console.log(opts.human ? humanOutput(formatTaskExecHuman(enriched)) : formatOutput(enriched, false));
-    } catch (err) {
-      handleError(err, EXIT_CODES.AGENT_FAILED);
-    }
-  });
+function registerStatus(parent: Command): void {
+  parent
+    .command('status [id]')
+    .description('Get detailed status for a task (infers ID from cwd if inside a worktree)')
+    .option('-H, --human', 'Human-friendly output', false)
+    .action(async (id, opts) => {
+      try {
+        isHumanMode = opts.human;
+        const taskId = resolveTaskId(id);
+        const root = getRepoRoot();
+        requireInit(root);
+        const result = await taskStatusCommand(root, taskId);
+        const enriched = withAbsoluteWorktree(result, root);
+        if (opts.human) {
+          let logContent = '';
+          try { logContent = await outputCommand(root, taskId); } catch {}
+          console.log(humanOutput(formatStatusHuman(enriched, logContent)));
+        } else {
+          console.log(formatOutput(enriched, false));
+        }
+      } catch (err) {
+        handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      }
+    });
+}
 
-taskCmd
-  .command('start <id>')
-  .description('Start the configured dev server in a task worktree')
-  .option('-H, --human', 'Human-friendly output', false)
-  .action(async (id, opts) => {
-    try {
-      isHumanMode = opts.human;
-      const root = getRepoRoot();
-      requireInit(root);
-      const result = await taskStartCommand(root, id);
-      console.log(opts.human ? humanOutput(formatTaskStartHuman(result)) : formatOutput(result, false));
-    } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
-    }
-  });
+function registerExec(parent: Command): void {
+  parent
+    .command('exec <id>')
+    .description('Execute a command inside a task worktree')
+    .requiredOption('--cmd <cmd>', 'Command to run')
+    .option('--wait', 'Wait for completion', false)
+    .option('-H, --human', 'Human-friendly output', false)
+    .action(async (id, opts) => {
+      try {
+        isHumanMode = opts.human;
+        const root = getRepoRoot();
+        requireInit(root);
+        const result = await taskExecCommand(root, id, {
+          cmd: opts.cmd,
+          wait: opts.wait,
+        });
+        const enriched = withAbsoluteWorktree(result, root);
+        console.log(opts.human ? humanOutput(formatTaskExecHuman(enriched)) : formatOutput(enriched, false));
+      } catch (err) {
+        handleError(err, EXIT_CODES.AGENT_FAILED);
+      }
+    });
+}
 
-taskCmd
-  .command('stop <id>')
-  .description('Stop the dev server running in a task worktree')
-  .option('-H, --human', 'Human-friendly output', false)
-  .action(async (id, opts) => {
-    try {
-      isHumanMode = opts.human;
-      const root = getRepoRoot();
-      requireInit(root);
-      const result = await taskStopCommand(root, id);
-      console.log(opts.human ? humanOutput(formatTaskStopHuman(result)) : formatOutput(result, false));
-    } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
-    }
-  });
+function registerStart(parent: Command): void {
+  parent
+    .command('start <id>')
+    .description('Start the configured dev server in a task worktree')
+    .option('-H, --human', 'Human-friendly output', false)
+    .action(async (id, opts) => {
+      try {
+        isHumanMode = opts.human;
+        const root = getRepoRoot();
+        requireInit(root);
+        const result = await taskStartCommand(root, id);
+        console.log(opts.human ? humanOutput(formatTaskStartHuman(result)) : formatOutput(result, false));
+      } catch (err) {
+        handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      }
+    });
+}
+
+function registerStop(parent: Command): void {
+  parent
+    .command('stop <id>')
+    .description('Stop the dev server running in a task worktree')
+    .option('-H, --human', 'Human-friendly output', false)
+    .action(async (id, opts) => {
+      try {
+        isHumanMode = opts.human;
+        const root = getRepoRoot();
+        requireInit(root);
+        const result = await taskStopCommand(root, id);
+        console.log(opts.human ? humanOutput(formatTaskStopHuman(result)) : formatOutput(result, false));
+      } catch (err) {
+        handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      }
+    });
+}
+
+// Register on both program (primary) and taskCmd (alias group)
+registerCreate(program);
+registerCreate(taskCmd);
+
+registerStatus(program);
+registerStatus(taskCmd);
+
+registerExec(program);
+registerExec(taskCmd);
+
+registerStart(program);
+registerStart(taskCmd);
+
+registerStop(program);
+registerStop(taskCmd);
 
 taskCmd
   .command('list')
@@ -269,7 +297,7 @@ taskCmd
 
 program
   .command('run')
-  .description('Create a task and run a command (shortcut for task create + task exec)')
+  .description('Create a task and run a command (shortcut for create + exec)')
   .requiredOption('--prompt <prompt>', 'Description of the task')
   .requiredOption('--cmd <cmd>', 'Command to run')
   .option('--wait', 'Wait for completion', false)
@@ -309,13 +337,14 @@ program
   });
 
 program
-  .command('log <id>')
+  .command('output <id>')
+  .alias('log')
   .description('Show captured agent output for a task')
   .action(async (id) => {
     try {
       const root = getRepoRoot();
       requireInit(root);
-      const log = await logCommand(root, id);
+      const log = await outputCommand(root, id);
       console.log(log);
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
@@ -359,7 +388,8 @@ program
   });
 
 program
-  .command('diff [id]')
+  .command('review [id]')
+  .alias('diff')
   .description('Show diff of changes in a task (infers ID from cwd if inside a worktree)')
   .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
@@ -368,8 +398,8 @@ program
       const taskId = resolveTaskId(id);
       const root = getRepoRoot();
       requireInit(root);
-      const result = await diffCommand(root, taskId);
-      console.log(opts.human ? humanOutput(formatDiffHuman(result)) : formatOutput(result, false));
+      const result = await reviewCommand(root, taskId);
+      console.log(opts.human ? humanOutput(formatReviewHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -392,7 +422,8 @@ program
   });
 
 program
-  .command('merge [id]')
+  .command('accept [id]')
+  .alias('merge')
   .description('Merge a task branch into the current branch (infers ID from cwd if inside a worktree)')
   .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
@@ -401,22 +432,23 @@ program
       const taskId = resolveTaskId(id);
       const root = getRepoRoot();
       requireInit(root);
-      const result = await mergeCommand(root, taskId);
+      const result = await acceptCommand(root, taskId);
       if (!result.merged) {
         throw new AgexError('Merge conflict', {
-          suggestion: `Run 'agex diff ${taskId}' to see changes, or 'agex discard ${taskId}' to abandon`,
+          suggestion: `Run 'agex review ${taskId}' to see changes, or 'agex reject ${taskId}' to abandon`,
           exitCode: EXIT_CODES.MERGE_CONFLICT,
         });
       }
-      console.log(opts.human ? humanOutput(formatMergeHuman(result)) : formatOutput(result, false));
+      console.log(opts.human ? humanOutput(formatAcceptHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.MERGE_CONFLICT);
     }
   });
 
 program
-  .command('discard [id]')
-  .description('Discard a task (remove worktree and branch) (infers ID from cwd if inside a worktree)')
+  .command('reject [id]')
+  .alias('discard')
+  .description('Reject a task (remove worktree and branch) (infers ID from cwd if inside a worktree)')
   .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
@@ -424,9 +456,9 @@ program
       const taskId = resolveTaskId(id);
       const root = getRepoRoot();
       requireInit(root);
-      const result = await discardCommand(root, taskId);
+      const result = await rejectCommand(root, taskId);
       const enriched = withAbsoluteWorktree(result, root);
-      console.log(opts.human ? humanOutput(formatDiscardHuman(enriched)) : formatOutput(enriched, false));
+      console.log(opts.human ? humanOutput(formatRejectHuman(enriched)) : formatOutput(enriched, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
@@ -482,9 +514,10 @@ program
   });
 
 program
-  .command('respond <taskId>')
+  .command('answer <taskId>')
+  .alias('respond')
   .description('Answer a question from a task in needs-input state')
-  .requiredOption('--answer <text>', 'Your answer to the task question')
+  .requiredOption('--text <text>', 'Your answer to the task question')
   .option('--cmd <command>', 'Agent command to re-run')
   .option('--wait', 'Wait for agent to complete', false)
   .option('-H, --human', 'Human-friendly output', false)
@@ -494,13 +527,13 @@ program
       const repoRoot = getRepoRoot();
       requireInit(repoRoot);
       const id = resolveTaskId(taskId);
-      const result = await respondCommand(repoRoot, id, {
-        answer: opts.answer,
+      const result = await answerCommand(repoRoot, id, {
+        text: opts.text,
         cmd: opts.cmd,
         wait: opts.wait,
       });
       const enriched = withAbsoluteWorktree(result, repoRoot);
-      console.log(opts.human ? humanOutput(formatRespondHuman(enriched)) : formatOutput(enriched, false));
+      console.log(opts.human ? humanOutput(formatAnswerHuman(enriched)) : formatOutput(enriched, false));
     } catch (err) {
       handleError(err, EXIT_CODES.INVALID_ARGS);
     }
