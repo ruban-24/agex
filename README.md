@@ -23,8 +23,21 @@
 
 ## Get Started
 
+### Homebrew (macOS/Linux)
+
+```
+brew install ruban-24/tap/agex
+```
+
+### npm
+
 ```bash
 npm install -g @ruban24/agex
+```
+
+Then initialize in your project:
+
+```bash
 cd your-project
 agex init
 ```
