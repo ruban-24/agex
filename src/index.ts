@@ -151,7 +151,8 @@ const taskCmd = program.command('task').description('Task management commands');
 taskCmd
   .command('create')
   .description('Create a new task with an isolated workspace')
-  .requiredOption('--prompt <prompt>', 'Description of the task')
+  .option('--prompt <prompt>', 'Description of the task')
+  .option('--issue <ref>', 'Create task from a GitHub issue (number, URL, or owner/repo#N)')
   .option('--cmd <cmd>', 'Command to execute (optional)')
   .option('-H, --human', 'Human-friendly output', false)
   .action(async (opts) => {
@@ -162,6 +163,7 @@ taskCmd
       const result = await taskCreateCommand(root, {
         prompt: opts.prompt,
         cmd: opts.cmd,
+        issue: opts.issue,
       });
       const enriched = withAbsoluteWorktree(result, root);
       console.log(opts.human ? humanOutput(formatTaskCreateHuman(enriched)) : formatOutput(enriched, false));

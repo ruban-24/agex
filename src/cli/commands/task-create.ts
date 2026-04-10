@@ -4,10 +4,12 @@ import { loadConfig } from '../../config/loader.js';
 import { AgexError } from '../../errors.js';
 import { EXIT_CODES } from '../../constants.js';
 import type { TaskRecord } from '../../types.js';
+import { parseIssueRef, fetchGitHubIssue, buildIssuePrompt } from '../github.js';
 
 export interface TaskCreateOptions {
-  prompt: string;
+  prompt?: string;
   cmd?: string;
+  issue?: string;
 }
 
 export async function taskCreateCommand(
@@ -18,8 +20,40 @@ export async function taskCreateCommand(
   const tm = new TaskManager(repoRoot);
   const wm = new WorkspaceManager(repoRoot);
 
+  // Resolve prompt from --issue and/or --prompt
+  let prompt = options.prompt || '';
+  let issueMetadata: TaskRecord['issue'] | undefined;
+
+  if (options.issue) {
+    const ref = parseIssueRef(options.issue);
+    const issue = await fetchGitHubIssue(ref);
+    const issuePrompt = buildIssuePrompt(issue);
+
+    prompt = options.prompt
+      ? `${issuePrompt}\n\n## Additional Instructions\n${options.prompt}`
+      : issuePrompt;
+
+    issueMetadata = {
+      number: issue.number,
+      url: issue.url,
+      title: issue.title,
+    };
+  }
+
+  if (!prompt) {
+    throw new AgexError('No prompt provided', {
+      suggestion: "Provide --prompt or --issue to create a task",
+      exitCode: EXIT_CODES.INVALID_ARGS,
+    });
+  }
+
   // Create task record
-  const task = await tm.createTask({ prompt: options.prompt, cmd: options.cmd });
+  const task = await tm.createTask({ prompt, cmd: options.cmd });
+
+  if (issueMetadata) {
+    await tm.updateTask(task.id, { issue: issueMetadata });
+  }
+
   await tm.updateStatus(task.id, 'provisioning');
 
   try {
