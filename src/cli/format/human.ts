@@ -122,6 +122,9 @@ export function formatStatusHuman(task: ServerAwareTask, logContent: string): st
   if (task.cmd) lines.push(`  ${dim('cmd:')}      ${task.cmd}`);
   lines.push(`  ${dim('created:')}  ${formatRelativeTime(task.created_at)}`);
   if (task.duration_s !== undefined) lines.push(`  ${dim('duration:')} ${formatDuration(task.duration_s)}`);
+  if (task.issue) {
+    lines.push(`  ${dim('issue:')}    #${task.issue.number} \u2014 ${task.issue.title} (${task.issue.url})`);
+  }
 
   // Server section
   if (task.server_running != null) {
@@ -367,11 +370,15 @@ export function formatInitHuman(data: {
 
 export function formatTaskCreateHuman(task: TaskRecord): string {
   const lines: string[] = [];
-  lines.push(card('green', [
+  const cardLines = [
     `${green('\u2713')} Created task ${bold(blue(task.id))}`,
     task.prompt,
     dim(`branch: ${task.branch} \u00b7 worktree: ${task.worktree}`),
-  ]));
+  ];
+  if (task.issue) {
+    cardLines.push(dim(`issue: #${task.issue.number} \u2014 ${task.issue.title}`));
+  }
+  lines.push(card('green', cardLines));
   lines.push(nextAction(`agex task exec ${task.id} --cmd "..." --wait`));
   return lines.join('\n');
 }

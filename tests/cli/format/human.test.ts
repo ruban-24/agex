@@ -92,6 +92,15 @@ describe('formatStatusHuman', () => {
     expect(result).toContain('LOG');
     expect(result).toContain('line5');
   });
+
+  it('shows issue info when present', () => {
+    const task = makeTask({
+      issue: { number: 45, url: 'https://github.com/owner/repo/issues/45', title: 'Fix login timeout' },
+    });
+    const result = stripAnsi(formatStatusHuman(task, ''));
+    expect(result).toContain('#45');
+    expect(result).toContain('Fix login timeout');
+  });
 });
 
 describe('formatSummaryHuman', () => {
@@ -223,6 +232,16 @@ describe('action formatters', () => {
     const result = stripAnsi(formatTaskCreateHuman(task));
     expect(result).toContain('Created task abc123');
     expect(result).toContain('agex task exec');
+  });
+
+  it('formatTaskCreateHuman shows issue info when present', () => {
+    const task = makeTask({
+      status: 'ready',
+      issue: { number: 45, url: 'https://github.com/owner/repo/issues/45', title: 'Fix login timeout' },
+    });
+    const result = stripAnsi(formatTaskCreateHuman(task));
+    expect(result).toContain('#45');
+    expect(result).toContain('Fix login timeout');
   });
 
   it('formatMergeHuman shows merge result with target branch', () => {
