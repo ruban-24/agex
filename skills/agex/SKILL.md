@@ -214,7 +214,7 @@ When you hit a decision that requires human input, signal it instead of guessing
 | Command | Purpose |
 |---------|---------|
 | `agex init [--verify <cmds...>]` | Initialize in current repo |
-| `agex create --prompt <text>` | Create isolated task with its own worktree |
+| `agex create --prompt <text> [--issue <ref>]` | Create isolated task with its own worktree |
 | `agex exec <id> --cmd <cmd> [--wait]` | Run command in task worktree |
 | `agex start <id>` | Start dev server in task worktree |
 | `agex stop <id>` | Stop dev server in task worktree |
@@ -239,18 +239,18 @@ All commands output JSON by default. Add `--human` for colored terminal output.
 ```
 pending -> provisioning -> ready -> running -> verifying -> completed -> merged
                                             -> needs-input -> running (after answer)
-                                                           -> discarded
+                                                           -> rejected
                                                verifying -> failed    -> retried (after retry)
-                                                                      -> discarded
+                                                                      -> rejected
                                                           -> errored  -> retried (after retry)
-                                                                      -> discarded
+                                                                      -> rejected
 ```
 
-- `ready`: can execute, verify, merge, or discard
-- `completed`/`failed`: can merge or discard
-- `needs-input`: agent signaled it needs a human decision — respond to continue
+- `ready`: can execute, verify, accept, or reject
+- `completed`/`failed`: can accept or reject
+- `needs-input`: agent signaled it needs a human decision — answer to continue
 - `retried`: task was superseded by a retry — terminal
-- `merged`/`discarded`: terminal — task is done
+- `merged`/`rejected`: terminal — task is done
 - Merge conflicts auto-abort and reattach the worktree so work can continue
 
 ## Key Behaviors
@@ -268,11 +268,11 @@ pending -> provisioning -> ready -> running -> verifying -> completed -> merged
 | Mistake | Fix |
 |---------|-----|
 | Merging without verifying | Always `verify` before `accept` |
-| Force-merging failed tasks | Discard and retry with better prompts |
+| Force-merging failed tasks | Reject and retry with better prompts |
 | Creating dependent tasks in parallel | Only parallelize truly independent work |
 | Skipping `compare` with multiple tasks | Compare reveals the best approach — don't guess |
 | Forgetting to clean up | Run `agex clean` after merge/discard cycles |
 | Using `--human` in agent workflows | Default JSON output is designed for agents — use it |
 | Starting servers you don't need | Only `start` when you need to test the running app |
-| Discarding and recreating instead of retrying | Use `agex retry --feedback` to build on previous work |
+| Rejecting and recreating instead of retrying | Use `agex retry --feedback` to build on previous work |
 | Erroring out when stuck on a decision | Write `.agex/needs-input.json` and exit — the human will respond |

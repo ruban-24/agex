@@ -13,6 +13,7 @@ await build({
   sourcemap: true,
   banner: { js: '#!/usr/bin/env node' },
   packages: 'external',
+  loader: { '.md': 'text' },
 });
 
 chmodSync('dist/index.js', 0o755);

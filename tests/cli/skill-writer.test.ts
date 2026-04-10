@@ -28,7 +28,7 @@ describe('SKILL_CONTENT', () => {
   });
 
   it('contains the workflow section', () => {
-    expect(SKILL_CONTENT).toContain('## Workflow');
+    expect(SKILL_CONTENT).toContain('## Core Workflows');
   });
 
   it('contains retry command reference', () => {
