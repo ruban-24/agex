@@ -106,7 +106,7 @@ program
   .option('--run <cmd>', 'Dev server command')
   .option('--port-env <var>', 'Env var name for port injection')
   .option('--agents <agents>', 'Agent skill files to generate (comma-separated: claude-code,codex,copilot)')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
@@ -144,7 +144,7 @@ taskCmd
   .description('Create a new task with an isolated workspace')
   .requiredOption('--prompt <prompt>', 'Description of the task')
   .option('--cmd <cmd>', 'Command to execute (optional)')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
@@ -163,7 +163,7 @@ taskCmd
 taskCmd
   .command('status [id]')
   .description('Get detailed status for a task (infers ID from cwd if inside a worktree)')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
@@ -188,7 +188,7 @@ taskCmd
   .description('Execute a command inside a task worktree')
   .requiredOption('--cmd <cmd>', 'Command to run')
   .option('--wait', 'Wait for completion', false)
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
@@ -207,7 +207,7 @@ taskCmd
 taskCmd
   .command('start <id>')
   .description('Start the configured dev server in a task worktree')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
@@ -223,7 +223,7 @@ taskCmd
 taskCmd
   .command('stop <id>')
   .description('Stop the dev server running in a task worktree')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
@@ -242,7 +242,7 @@ program
   .requiredOption('--prompt <prompt>', 'Description of the task')
   .requiredOption('--cmd <cmd>', 'Command to run')
   .option('--wait', 'Wait for completion', false)
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
@@ -262,7 +262,7 @@ program
 program
   .command('list')
   .description('List all tasks')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
@@ -292,7 +292,7 @@ program
 program
   .command('summary')
   .description('Summary of all tasks')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;
@@ -308,7 +308,7 @@ program
 program
   .command('verify [id]')
   .description('Run verification checks against a task (infers ID from cwd if inside a worktree)')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
@@ -325,7 +325,7 @@ program
 program
   .command('diff [id]')
   .description('Show diff of changes in a task (infers ID from cwd if inside a worktree)')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
@@ -342,7 +342,7 @@ program
 program
   .command('compare <ids...>')
   .description('Compare multiple tasks')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (ids, opts) => {
     try {
       isHumanMode = opts.human;
@@ -358,7 +358,7 @@ program
 program
   .command('merge [id]')
   .description('Merge a task branch into the current branch (infers ID from cwd if inside a worktree)')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
@@ -383,7 +383,7 @@ program
 program
   .command('discard [id]')
   .description('Discard a task (remove worktree and branch) (infers ID from cwd if inside a worktree)')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (id, opts) => {
     try {
       isHumanMode = opts.human;
@@ -400,7 +400,7 @@ program
 program
   .command('clean')
   .description('Clean up all completed/discarded task worktrees')
-  .option('--human', 'Human-friendly output', false)
+  .option('-H, --human', 'Human-friendly output', false)
   .action(async (opts) => {
     try {
       isHumanMode = opts.human;

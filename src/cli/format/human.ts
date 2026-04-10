@@ -50,7 +50,8 @@ function taskCardLine(task: ServerAwareTask): string {
   if (task.verification && task.verification.checks.length > 0) {
     const passed = task.verification.checks.filter((c) => c.passed).length;
     const total = task.verification.checks.length;
-    const checksText = `${passed}/${total}`;
+    const sym = task.verification.passed ? checkSymbol(true) : checkSymbol(false);
+    const checksText = `${sym} ${passed}/${total}`;
     parts.push(task.verification.passed ? green(checksText) : red(checksText));
   }
 
@@ -62,10 +63,8 @@ function taskCardLine(task: ServerAwareTask): string {
     parts.push(dim(`srv :${task.port}`));
   }
 
-  parts.push(task.prompt);
-  if (task.worktree && !['merged', 'discarded'].includes(task.status)) {
-    parts.push(dim(task.worktree));
-  }
+  const truncatedPrompt = task.prompt.length > 40 ? task.prompt.slice(0, 37) + '...' : task.prompt;
+  parts.push(truncatedPrompt);
   return parts.join('  ');
 }
 
