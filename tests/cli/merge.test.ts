@@ -90,6 +90,24 @@ describe('mergeCommand', () => {
     expect(result.auto_committed).toBeUndefined();
   });
 
+  it('rejects merge when working tree is dirty', async () => {
+    const task = await taskCreateCommand(repo.path, { prompt: 'dirty merge test' });
+
+    // Make a commit in the worktree so there's something to merge
+    const wtPath = join(repo.path, '.agex', 'tasks', task.id);
+    await writeFile(join(wtPath, 'new-file.txt'), 'content');
+    execSync('git add . && git commit -m "add file"', { cwd: wtPath, stdio: 'ignore' });
+
+    // Dirty the main working tree
+    await writeFile(join(repo.path, 'dirty.txt'), 'uncommitted');
+
+    await expect(mergeCommand(repo.path, task.id)).rejects.toThrow('uncommitted changes');
+
+    // Clean up
+    const { unlink } = await import('node:fs/promises');
+    await unlink(join(repo.path, 'dirty.txt'));
+  });
+
   it('restores worktree when merge fails due to conflict', async () => {
     const task = await taskCreateCommand(repo.path, { prompt: 'conflict test' });
     const wtPath = join(repo.path, '.agex', 'tasks', task.id);

@@ -1,8 +1,9 @@
+import { execSync } from 'node:child_process';
 import simpleGit from 'simple-git';
 import { TaskManager } from '../../core/task-manager.js';
 import { Reviewer } from '../../core/reviewer.js';
 import { WorkspaceManager } from '../../core/workspace-manager.js';
-import { worktreePath } from '../../constants.js';
+import { worktreePath, EXIT_CODES } from '../../constants.js';
 import { AgexError } from '../../errors.js';
 
 export interface MergeResult {
@@ -41,6 +42,18 @@ export async function mergeCommand(repoRoot: string, taskId: string): Promise<Me
   const commitSha = await wm.commitAll(taskId, task.prompt);
   if (commitSha) {
     autoCommitted = true;
+  }
+
+  // Check for dirty working tree before merging (exclude .agex/ metadata)
+  const porcelain = execSync('git status --porcelain', { cwd: repoRoot, encoding: 'utf-8' }).trim();
+  const dirtyLines = porcelain
+    .split('\n')
+    .filter((line) => line.length > 0 && !line.slice(3).startsWith('.agex/'));
+  if (dirtyLines.length > 0) {
+    throw new AgexError('Working tree has uncommitted changes', {
+      suggestion: "Commit or stash your changes before merging. Run 'git status' to see what's dirty",
+      exitCode: EXIT_CODES.WORKSPACE_ERROR,
+    });
   }
 
   // Remove the worktree but keep the branch (git can't merge a checked-out branch)
