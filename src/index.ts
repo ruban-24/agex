@@ -67,12 +67,10 @@ function getRepoRoot(): string {
   try {
     execSync('git rev-parse --git-dir', { cwd, stdio: 'ignore' });
   } catch {
-    console.error(
-      isHumanMode
-        ? humanOutput(formatErrorHuman('Not a git repository. Run this command inside a git repo.'))
-        : JSON.stringify({ error: 'Not a git repository' })
-    );
-    process.exit(EXIT_CODES.INVALID_ARGS);
+    throw new AgexError('Not a git repository', {
+      suggestion: 'agex must be run inside a git repository',
+      exitCode: EXIT_CODES.INVALID_ARGS,
+    });
   }
   return cwd;
 }
@@ -88,12 +86,10 @@ function requireInit(repoRoot: string): void {
   try {
     accessSync(join(repoRoot, '.agex'));
   } catch {
-    console.error(
-      isHumanMode
-        ? humanOutput(formatErrorHuman('agex not initialized. Run: agex init'))
-        : JSON.stringify({ error: 'agex not initialized. Run: agex init' })
-    );
-    process.exit(EXIT_CODES.WORKSPACE_ERROR);
+    throw new AgexError('agex not initialized', {
+      suggestion: "Run 'agex init' to initialize this repository",
+      exitCode: EXIT_CODES.WORKSPACE_ERROR,
+    });
   }
 }
 
