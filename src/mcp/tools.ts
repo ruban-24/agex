@@ -16,6 +16,8 @@ import { discardCommand } from '../cli/commands/discard.js';
 import { cleanCommand } from '../cli/commands/clean.js';
 import { taskStartCommand } from '../cli/commands/task-start.js';
 import { taskStopCommand } from '../cli/commands/task-stop.js';
+import { retryCommand } from '../cli/commands/retry.js';
+import { respondCommand } from '../cli/commands/respond.js';
 
 function getRepoRoot(): string {
   return resolve(process.cwd());
@@ -196,6 +198,44 @@ export function getTools(): ToolDefinition[] {
       description: 'Get a summary of all tasks',
       handler: async () => {
         return await summaryCommand(getRepoRoot());
+      },
+    },
+    {
+      name: 'agex_retry',
+      description: 'Retry a failed task with feedback. Creates a new task branching from the failed task with an enhanced prompt.',
+      inputSchema: {
+        taskId: z.string().describe('ID of the task to retry'),
+        feedback: z.string().describe('Feedback explaining what to fix'),
+        cmd: z.string().optional().describe('Agent command to run'),
+        fromScratch: z.boolean().optional().describe('Branch from main instead of failed task'),
+        dryRun: z.boolean().optional().describe('Preview prompt without creating task'),
+        wait: z.boolean().optional().describe('Wait for agent to complete'),
+      },
+      handler: async (args) => {
+        return await retryCommand(getRepoRoot(), args.taskId as string, {
+          feedback: args.feedback as string,
+          cmd: args.cmd as string | undefined,
+          fromScratch: args.fromScratch as boolean | undefined,
+          dryRun: args.dryRun as boolean | undefined,
+          wait: args.wait as boolean | undefined,
+        });
+      },
+    },
+    {
+      name: 'agex_respond',
+      description: 'Answer a question from a task in needs-input state. Re-executes the agent with Q&A context.',
+      inputSchema: {
+        taskId: z.string().describe('ID of the task to respond to'),
+        answer: z.string().describe('Your answer to the task question'),
+        cmd: z.string().optional().describe('Agent command to re-run'),
+        wait: z.boolean().optional().describe('Wait for agent to complete'),
+      },
+      handler: async (args) => {
+        return await respondCommand(getRepoRoot(), args.taskId as string, {
+          answer: args.answer as string,
+          cmd: args.cmd as string | undefined,
+          wait: args.wait as boolean | undefined,
+        });
       },
     },
   ];

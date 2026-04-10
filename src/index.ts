@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { accessSync } from 'node:fs';
+import { accessSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { initCommand } from './cli/commands/init.js';
@@ -18,6 +18,8 @@ import { compareCommand } from './cli/commands/compare.js';
 import { mergeCommand } from './cli/commands/merge.js';
 import { discardCommand } from './cli/commands/discard.js';
 import { cleanCommand } from './cli/commands/clean.js';
+import { retryCommand } from './cli/commands/retry.js';
+import { respondCommand } from './cli/commands/respond.js';
 import { taskStartCommand } from './cli/commands/task-start.js';
 import { taskStopCommand } from './cli/commands/task-stop.js';
 import { formatOutput, humanOutput } from './cli/output.js';
@@ -38,18 +40,23 @@ import {
   formatTaskStartHuman,
   formatTaskStopHuman,
   formatErrorHuman,
+  formatRetryHuman,
+  formatRetryDryRunHuman,
+  formatRespondHuman,
 } from './cli/format/human.js';
 import { EXIT_CODES } from './constants.js';
 import { resolveWorktreeContext } from './utils/resolve-context.js';
 
 let isHumanMode = false;
 
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
+
 const program = new Command();
 
 program
   .name('agex')
   .description('A CLI runtime for running parallel AI coding tasks safely inside real repos')
-  .version('0.1.0');
+  .version(pkg.version);
 
 function getRepoRoot(): string {
   const ctx = resolveWorktreeContext();
@@ -411,6 +418,62 @@ program
       console.log(opts.human ? humanOutput(formatCleanHuman(result)) : formatOutput(result, false));
     } catch (err) {
       handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
+  });
+
+program
+  .command('retry <taskId>')
+  .description('Retry a failed task with feedback')
+  .requiredOption('--feedback <text>', 'Feedback for the retry')
+  .option('--from-scratch', 'Branch from main instead of failed task', false)
+  .option('--dry-run', 'Preview the retry prompt without creating a task', false)
+  .option('--cmd <command>', 'Agent command to run')
+  .option('--wait', 'Wait for agent to complete', false)
+  .option('-H, --human', 'Human-friendly output', false)
+  .action(async (taskId, opts) => {
+    try {
+      isHumanMode = opts.human;
+      const repoRoot = getRepoRoot();
+      requireInit(repoRoot);
+      const id = resolveTaskId(taskId);
+      const result = await retryCommand(repoRoot, id, {
+        feedback: opts.feedback,
+        fromScratch: opts.fromScratch,
+        dryRun: opts.dryRun,
+        cmd: opts.cmd,
+        wait: opts.wait,
+      });
+      if (opts.dryRun) {
+        console.log(opts.human ? humanOutput(formatRetryDryRunHuman(result.prompt)) : formatOutput({ prompt: result.prompt }, false));
+      } else {
+        console.log(opts.human ? humanOutput(formatRetryHuman(result)) : formatOutput(result, false));
+      }
+    } catch (err) {
+      handleError(err, EXIT_CODES.INVALID_ARGS);
+    }
+  });
+
+program
+  .command('respond <taskId>')
+  .description('Answer a question from a task in needs-input state')
+  .requiredOption('--answer <text>', 'Your answer to the task question')
+  .option('--cmd <command>', 'Agent command to re-run')
+  .option('--wait', 'Wait for agent to complete', false)
+  .option('-H, --human', 'Human-friendly output', false)
+  .action(async (taskId, opts) => {
+    try {
+      isHumanMode = opts.human;
+      const repoRoot = getRepoRoot();
+      requireInit(repoRoot);
+      const id = resolveTaskId(taskId);
+      const result = await respondCommand(repoRoot, id, {
+        answer: opts.answer,
+        cmd: opts.cmd,
+        wait: opts.wait,
+      });
+      console.log(opts.human ? humanOutput(formatRespondHuman(result)) : formatOutput(result, false));
+    } catch (err) {
+      handleError(err, EXIT_CODES.INVALID_ARGS);
     }
   });
 
