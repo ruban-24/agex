@@ -5,6 +5,7 @@ import { AgentRunner } from '../../core/agent-runner.js';
 import { Verifier } from '../../core/verifier.js';
 import { loadConfig } from '../../config/loader.js';
 import { detectVerifyCommands } from '../../config/auto-detect.js';
+import { AgexError } from '../../errors.js';
 import type { TaskRecord, NeedsInputPayload } from '../../types.js';
 
 export interface TaskExecOptions {
@@ -44,7 +45,9 @@ export async function taskExecCommand(
 
   const task = await tm.getTask(taskId);
   if (!task) {
-    throw new Error(`Task not found: ${taskId}`);
+    throw new AgexError(`Task not found: ${taskId}`, {
+      suggestion: "Run 'agex list' to see available tasks",
+    });
   }
 
   const wtPath = resolve(repoRoot, task.worktree);

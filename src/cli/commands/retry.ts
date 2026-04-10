@@ -2,6 +2,7 @@ import { TaskManager } from '../../core/task-manager.js';
 import { WorkspaceManager } from '../../core/workspace-manager.js';
 import { loadConfig } from '../../config/loader.js';
 import { taskExecCommand } from './task-exec.js';
+import { AgexError } from '../../errors.js';
 import type { TaskRecord } from '../../types.js';
 
 export interface RetryOptions {
@@ -53,7 +54,9 @@ export async function retryCommand(
   const original = await tm.getTask(taskId);
 
   if (!original) {
-    throw new Error(`Task not found: ${taskId}`);
+    throw new AgexError(`Task not found: ${taskId}`, {
+      suggestion: "Run 'agex list' to see available tasks",
+    });
   }
 
   if (!RETRYABLE_STATUSES.includes(original.status)) {

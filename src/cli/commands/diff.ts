@@ -1,5 +1,6 @@
 import { TaskManager } from '../../core/task-manager.js';
 import { Reviewer } from '../../core/reviewer.js';
+import { AgexError } from '../../errors.js';
 import type { CommitLogEntry, FileStats } from '../../core/reviewer.js';
 
 export interface DiffResult {
@@ -20,7 +21,9 @@ export async function diffCommand(repoRoot: string, taskId: string): Promise<Dif
 
   const task = await tm.getTask(taskId);
   if (!task) {
-    throw new Error(`Task not found: ${taskId}`);
+    throw new AgexError(`Task not found: ${taskId}`, {
+      suggestion: "Run 'agex list' to see available tasks",
+    });
   }
 
   const stats = await reviewer.getDiff(task.branch);
