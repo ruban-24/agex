@@ -1,4 +1,4 @@
-import { execaCommand } from 'execa';
+import { execa } from 'execa';
 import { AgexError } from '../errors.js';
 import { EXIT_CODES } from '../constants.js';
 
@@ -55,7 +55,7 @@ export async function fetchGitHubIssue(ref: ParsedIssueRef): Promise<GitHubIssue
 
   let result;
   try {
-    result = await execaCommand(`gh ${args.join(' ')}`, { shell: true });
+    result = await execa('gh', args);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     const stderr = (err as Record<string, unknown>)?.stderr as string || '';

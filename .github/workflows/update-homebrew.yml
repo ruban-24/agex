@@ -38,15 +38,16 @@ jobs:
           echo "SHA256: $SHA"
 
       - name: Update homebrew-tap formula
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          URL: ${{ steps.sha.outputs.url }}
+          SHA: ${{ steps.sha.outputs.sha256 }}
+          PAT: ${{ secrets.PAT }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          URL="${{ steps.sha.outputs.url }}"
-          SHA="${{ steps.sha.outputs.sha256 }}"
-
-          git clone https://x-access-token:${{ secrets.PAT }}@github.com/ruban-24/homebrew-tap.git
+          git clone "https://x-access-token:${PAT}@github.com/ruban-24/homebrew-tap.git"
           cd homebrew-tap
 
-          cat > Formula/agex.rb << FORMULA
+          cat > Formula/agex.rb <<FORMULA
           class Agex < Formula
             desc "Worktree-isolated task runner for AI coding agents"
             homepage "https://github.com/ruban-24/agex"
