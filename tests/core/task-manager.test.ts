@@ -239,6 +239,16 @@ describe('TaskManager', () => {
       await expect(tm.updateStatus(task.id, 'needs-input')).rejects.toThrow(/invalid transition/i);
     });
 
+    it('rejects transition from failed to merged', async () => {
+      const task = await tm.createTask({ prompt: 'test' });
+      await tm.updateStatus(task.id, 'provisioning');
+      await tm.updateStatus(task.id, 'ready');
+      await tm.updateStatus(task.id, 'running');
+      await tm.updateStatus(task.id, 'verifying');
+      await tm.updateStatus(task.id, 'failed');
+      await expect(tm.updateStatus(task.id, 'merged')).rejects.toThrow(/invalid transition/i);
+    });
+
     it('rejects transition from retried (terminal)', async () => {
       const task = await tm.createTask({ prompt: 'test' });
       await tm.updateStatus(task.id, 'provisioning');
