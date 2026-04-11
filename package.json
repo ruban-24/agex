@@ -1,6 +1,6 @@
 {
   "name": "@ruban24/agex",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A CLI runtime for running parallel AI coding tasks safely inside real repos",
   "type": "module",
   "bin": {

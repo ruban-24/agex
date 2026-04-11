@@ -8,6 +8,8 @@ If you are about to edit more than one file, STOP — create an agex task first.
 
 When multiple parts of the work are independent, create separate agex tasks and work them in parallel.
 
+**Always use the `agex` CLI package** (not `node dist/index.js`) when dogfooding agex commands. Running from `dist/` can cause conflicts with the build output of the tasks you're merging.
+
 ## Codex Review Integration
 
 Codex (GPT) is used as an independent reviewer at key workflow checkpoints. The review gate is enabled for this repo.
