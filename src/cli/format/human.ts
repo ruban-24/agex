@@ -7,6 +7,7 @@ import type { TaskRecord, TaskStatus, VerificationCheck } from '../../types.js';
 import type { CommitLogEntry, FileStats } from '../../core/reviewer.js';
 import type { TaskStartResult } from '../commands/task-start.js';
 import type { TaskStopResult } from '../commands/task-stop.js';
+import type { CancelResult } from '../commands/cancel.js';
 
 interface ServerAwareTask extends TaskRecord {
   port?: number;
@@ -503,6 +504,13 @@ export function formatAnswerHuman(task: TaskRecord): string {
   return card(color, [
     `${bold('Answer saved.')} Resuming task ${blue(task.id)}...`,
   ]);
+}
+
+export function formatCancelHuman(data: CancelResult): string {
+  const parts = [`${red('■')} Cancelled ${blue(data.id)}`];
+  if (data.agent_killed) parts.push('agent killed');
+  if (data.server_killed) parts.push('server killed');
+  return card('red', [parts.join(' · ')]);
 }
 
 export function formatErrorHuman(message: string, suggestion?: string): string {
