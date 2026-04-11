@@ -10,14 +10,8 @@ When multiple parts of the work are independent, create separate agex tasks and 
 
 **Always use the `agex` CLI package** (not `node dist/index.js`) when dogfooding agex commands. Running from `dist/` can cause conflicts with the build output of the tasks you're merging.
 
-## Codex Review Integration
+## Codex Review
 
-Codex (GPT) is used as an independent reviewer at key workflow checkpoints. The review gate is enabled for this repo.
-
-### When to run `/codex:review`:
-1. **After brainstorming produces a spec** — run `/codex:review` for an adversarial review of the spec before moving to planning
-2. **After writing a plan** — run `/codex:review` for an adversarial review of the plan before moving to implementation
-3. **After each agex task's code review** — when using `superpowers:requesting-code-review`, also run `/codex:review` so Codex reviews the work against the spec
-
-### Review gate (automatic):
-The stop-time review gate is enabled. Every session (including subagent sessions) will be reviewed by Codex before it can stop. If Codex finds issues, the session is blocked from ending until they're addressed.
+Run `/codex:review` at two checkpoints:
+1. **After writing the implementation plan** — before any code is written
+2. **After all code is written** — before merging the worktree to main
