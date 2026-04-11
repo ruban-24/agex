@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.2 — 2026-04-11
+
+### Features
+
+- **Cancel command** (`agex cancel [id]`): Kill a running or needs-input agent task. Sends SIGTERM→SIGKILL to the agent process, also kills any dev server, clears server fields, and transitions the task to `errored` with "Cancelled by user". Available in CLI and MCP (`agex_cancel`).
+- **`needs-input → errored` transition**: Cancel support required allowing tasks in `needs-input` state to transition to `errored`.
+
+### Bug Fixes
+
+- **Port allocation** (#35 partial): Port assignment no longer uses task count as index. `nextAvailablePort()` scans existing tasks' assigned ports and fills gaps, preventing collisions after task deletion.
+- **Accept rejects failed tasks**: `accept` no longer allows merging tasks in `failed` status. The `failed → merged` state transition is removed, and `mergeableStatuses` is now `['ready', 'completed']` only.
+- **Smart dirty check for accept** (#36): `accept` now only blocks when dirty working tree files overlap with the task branch's changed files. Unrelated dirty files (config edits, linter output) no longer block merges.
+- **Porcelain parsing fix**: Fixed a `.trim()` bug in accept's dirty-file detection that could corrupt filenames starting with a space-prefixed status code (e.g., ` M file.txt`).
+
 ## 0.3.1 — 2026-04-11
 
 ### Breaking Changes (MCP)

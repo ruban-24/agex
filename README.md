@@ -171,6 +171,7 @@ All commands output JSON by default — designed for agent consumption. Add `--h
 | `agex run --prompt "..." --cmd "..." [--wait]` | Shortcut for create + exec |
 | `agex start <id>` | Start dev server in task worktree |
 | `agex stop <id>` | Stop dev server |
+| `agex cancel [id]` | Kill a running or needs-input agent task |
 
 ### Monitoring
 
@@ -195,6 +196,8 @@ All commands output JSON by default — designed for agent consumption. Add `--h
 |---------|-------------|
 | `agex accept <id>` | Merge task branch into current branch |
 | `agex reject <id>` | Remove task worktree and branch |
+| `agex retry <id> --feedback "..."` | Retry a failed task with feedback |
+| `agex answer <id> --text "..."` | Answer a question from a needs-input task |
 | `agex clean` | Clean up all finished tasks |
 
 ## Configuration

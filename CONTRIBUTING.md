@@ -11,7 +11,7 @@ npm install
 ## Scripts
 
 ```bash
-npm run build      # Build with tsup
+npm run build      # Build the project
 npm run dev        # Run CLI via tsx (no build needed)
 npm test           # Run tests with vitest
 npm run test:watch # Watch mode
