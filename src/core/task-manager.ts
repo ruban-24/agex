@@ -18,6 +18,9 @@ export interface CreateTaskOptions {
 
 export class TaskManager {
   private repoRoot: string;
+  // Write-through cache: populated after saveTask(), used by updateTask/updateStatus
+  // to skip the re-read of a file we just wrote. getTask() always reads from disk.
+  private writeCache = new Map<string, TaskRecord>();
 
   constructor(repoRoot: string) {
     this.repoRoot = repoRoot;
@@ -25,8 +28,7 @@ export class TaskManager {
 
   async createTask(options: CreateTaskOptions): Promise<TaskRecord> {
     const id = generateTaskId();
-    const existingTasks = await this.listTasks();
-    const existingPorts = existingTasks.map((t) => parseInt(t.env.AGEX_PORT, 10));
+    const existingPorts = await this.getUsedPorts();
     const port = nextAvailablePort(existingPorts, DEFAULT_PORTS.base, DEFAULT_PORTS.step);
     const worktreeAbsolute = resolve(this.repoRoot, '.agex', 'tasks', id);
 
@@ -50,21 +52,34 @@ export class TaskManager {
   }
 
   async getTask(id: string): Promise<TaskRecord | null> {
-    const task = await this.getRawTask(id);
+    const task = await this.readTaskFromDisk(id);
     if (!task) return null;
     return await this.recoverIfStale(task);
   }
 
-  private async getRawTask(id: string): Promise<TaskRecord | null> {
+  private async readTaskFromDisk(id: string): Promise<TaskRecord | null> {
     try {
       const content = await readFile(taskFilePath(this.repoRoot, id), 'utf-8');
-      return JSON.parse(content) as TaskRecord;
+      const task = JSON.parse(content) as TaskRecord;
+      this.writeCache.set(id, task);
+      return task;
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        this.writeCache.delete(id);
         return null;
       }
       throw err;
     }
+  }
+
+  /**
+   * Get a task using the write cache if available, to avoid re-reading
+   * a file we just wrote. Used internally by updateTask/updateStatus.
+   */
+  private async getTaskFast(id: string): Promise<TaskRecord | null> {
+    const cached = this.writeCache.get(id);
+    if (cached) return cached;
+    return await this.readTaskFromDisk(id);
   }
 
   async listTasks(): Promise<TaskRecord[]> {
@@ -115,6 +130,7 @@ export class TaskManager {
   }
 
   async saveTask(task: TaskRecord): Promise<void> {
+    this.writeCache.set(task.id, task);
     await writeFile(taskFilePath(this.repoRoot, task.id), JSON.stringify(task, null, 2));
   }
 
@@ -134,7 +150,7 @@ export class TaskManager {
   };
 
   async updateStatus(id: string, newStatus: TaskStatus): Promise<TaskRecord> {
-    const task = await this.getRawTask(id);
+    const task = await this.getTaskFast(id);
     if (!task) {
       throw new Error(`Task not found: ${id}`);
     }
@@ -169,7 +185,7 @@ export class TaskManager {
   }
 
   async updateTask(id: string, updates: Omit<Partial<TaskRecord>, 'id' | 'status'>): Promise<TaskRecord> {
-    const task = await this.getRawTask(id);
+    const task = await this.getTaskFast(id);
     if (!task) {
       throw new Error(`Task not found: ${id}`);
     }
@@ -180,11 +196,40 @@ export class TaskManager {
   }
 
   async deleteTask(id: string): Promise<void> {
-    const task = await this.getRawTask(id);
+    const task = await this.getTaskFast(id);
     if (!task) {
       throw new Error(`Task not found: ${id}`);
     }
+    this.writeCache.delete(id);
     try { await unlink(taskFilePath(this.repoRoot, id)); } catch { /* already gone */ }
     try { await unlink(taskLogPath(this.repoRoot, id)); } catch { /* already gone */ }
+  }
+
+  /**
+   * Lightweight port scan: reads only the port field from each task file.
+   * Avoids full listTasks() which also runs recoverIfStale on every task.
+   */
+  private async getUsedPorts(): Promise<number[]> {
+    try {
+      const files = await readdir(tasksPath(this.repoRoot));
+      const jsonFiles = files.filter((f) => f.endsWith('.json'));
+      const ports = await Promise.all(
+        jsonFiles.map(async (f) => {
+          try {
+            const content = await readFile(join(tasksPath(this.repoRoot), f), 'utf-8');
+            const task = JSON.parse(content) as TaskRecord;
+            return parseInt(task.env.AGEX_PORT, 10);
+          } catch {
+            return NaN;
+          }
+        })
+      );
+      return ports.filter((p) => !isNaN(p));
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return [];
+      }
+      throw err;
+    }
   }
 }

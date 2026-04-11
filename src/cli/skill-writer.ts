@@ -128,15 +128,20 @@ function buildHookConfig(agent: AgentId, hookFilePath: string, existing: Record<
   }
 }
 
-// Single source of truth: skills/agex/SKILL.md — read at runtime.
+// Single source of truth: skills/agex/SKILL.md — read lazily on first use.
 // Try two relative paths: dev (src/cli/) and prod (dist/).
-let _skillContent: string;
-try {
-  _skillContent = readFileSync(new URL('../../skills/agex/SKILL.md', import.meta.url), 'utf-8');
-} catch {
-  _skillContent = readFileSync(new URL('../skills/agex/SKILL.md', import.meta.url), 'utf-8');
+let _skillContent: string | null = null;
+
+export function getSkillContent(): string {
+  if (_skillContent === null) {
+    try {
+      _skillContent = readFileSync(new URL('../../skills/agex/SKILL.md', import.meta.url), 'utf-8');
+    } catch {
+      _skillContent = readFileSync(new URL('../skills/agex/SKILL.md', import.meta.url), 'utf-8');
+    }
+  }
+  return _skillContent;
 }
-export const SKILL_CONTENT: string = _skillContent;
 
 /**
  * Write the agex SKILL.md file and configure a SessionStart hook
@@ -154,7 +159,7 @@ export async function writeSkillFiles(
     const relPath = AGENT_PATHS[agent];
     const absPath = join(repoRoot, relPath);
     await mkdir(dirname(absPath), { recursive: true });
-    await writeFile(absPath, SKILL_CONTENT, 'utf-8');
+    await writeFile(absPath, getSkillContent(), 'utf-8');
     written.push(relPath);
 
     // Write hook content file

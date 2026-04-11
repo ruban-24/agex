@@ -6,7 +6,7 @@ import { Verifier } from '../../core/verifier.js';
 import { loadConfig } from '../../config/loader.js';
 import { detectVerifyCommands } from '../../config/auto-detect.js';
 import { AgexError } from '../../errors.js';
-import type { TaskRecord, NeedsInputPayload } from '../../types.js';
+import type { TaskRecord, NeedsInputPayload, AgexConfig } from '../../types.js';
 
 export interface TaskExecOptions {
   cmd: string;
@@ -37,12 +37,13 @@ export async function checkNeedsInput(wtPath: string): Promise<NeedsInputPayload
 export async function taskExecCommand(
   repoRoot: string,
   taskId: string,
-  options: TaskExecOptions
+  options: TaskExecOptions,
+  preloadedConfig?: AgexConfig,
 ): Promise<TaskRecord> {
   const tm = new TaskManager(repoRoot);
   const runner = new AgentRunner(repoRoot);
   const verifier = new Verifier();
-  const config = await loadConfig(repoRoot);
+  const config = preloadedConfig ?? await loadConfig(repoRoot);
 
   const task = await tm.getTask(taskId);
   if (!task) {

@@ -6,33 +6,32 @@ import { worktreePath } from '../constants.js';
 
 export class WorkspaceManager {
   private repoRoot: string;
+  private git: ReturnType<typeof simpleGit>;
 
   constructor(repoRoot: string) {
     this.repoRoot = repoRoot;
+    this.git = simpleGit(repoRoot);
   }
 
   async createWorktree(taskId: string, branch: string): Promise<string> {
-    const git = simpleGit(this.repoRoot);
     const wtPath = worktreePath(this.repoRoot, taskId);
 
-    await git.raw(['worktree', 'add', '-b', branch, wtPath]);
+    await this.git.raw(['worktree', 'add', '-b', branch, wtPath]);
 
     return wtPath;
   }
 
   async reattachWorktree(taskId: string, branch: string): Promise<string> {
-    const git = simpleGit(this.repoRoot);
     const wtPath = worktreePath(this.repoRoot, taskId);
-    await git.raw(['worktree', 'add', wtPath, branch]);
+    await this.git.raw(['worktree', 'add', wtPath, branch]);
     return wtPath;
   }
 
   async createWorktreeFromBranch(taskId: string, newBranch: string, baseBranch: string): Promise<string> {
-    const git = simpleGit(this.repoRoot);
     const wtPath = worktreePath(this.repoRoot, taskId);
 
     // Create new branch from baseBranch and check it out in worktree
-    await git.raw(['worktree', 'add', '-b', newBranch, wtPath, baseBranch]);
+    await this.git.raw(['worktree', 'add', '-b', newBranch, wtPath, baseBranch]);
 
     return wtPath;
   }
@@ -94,34 +93,32 @@ export class WorkspaceManager {
 
   async hasUncommittedChanges(taskId: string): Promise<boolean> {
     const wtPath = worktreePath(this.repoRoot, taskId);
-    const git = simpleGit(wtPath);
-    const status = await git.raw(['status', '--porcelain']);
+    const wtGit = simpleGit(wtPath);
+    const status = await wtGit.raw(['status', '--porcelain']);
     return status.trim().length > 0;
   }
 
   async commitAll(taskId: string, message: string): Promise<string | null> {
     const wtPath = worktreePath(this.repoRoot, taskId);
-    const git = simpleGit(wtPath);
+    const wtGit = simpleGit(wtPath);
 
-    const status = await git.raw(['status', '--porcelain']);
+    const status = await wtGit.raw(['status', '--porcelain']);
     if (!status.trim()) return null;
 
-    await git.raw(['add', '-A']);
-    await git.raw(['commit', '-m', message]);
-    return (await git.raw(['rev-parse', 'HEAD'])).trim();
+    await wtGit.raw(['add', '-A']);
+    await wtGit.raw(['commit', '-m', message]);
+    return (await wtGit.raw(['rev-parse', 'HEAD'])).trim();
   }
 
   async safeRemoveWorktree(taskId: string): Promise<void> {
     try {
-      const git = simpleGit(this.repoRoot);
       const wtPath = worktreePath(this.repoRoot, taskId);
-      await git.raw(['worktree', 'remove', '--force', wtPath]);
+      await this.git.raw(['worktree', 'remove', '--force', wtPath]);
     } catch {
       // Worktree may not exist — that's fine
     }
     try {
-      const git = simpleGit(this.repoRoot);
-      await git.raw(['worktree', 'prune']);
+      await this.git.raw(['worktree', 'prune']);
     } catch {
       // Prune failure is non-critical
     }
@@ -129,21 +126,19 @@ export class WorkspaceManager {
 
   async safeDeleteBranch(branch: string): Promise<void> {
     try {
-      const git = simpleGit(this.repoRoot);
-      await git.raw(['branch', '-D', branch]);
+      await this.git.raw(['branch', '-D', branch]);
     } catch {
       // Branch may not exist — that's fine
     }
   }
 
   async removeWorktree(taskId: string, branch: string): Promise<void> {
-    const git = simpleGit(this.repoRoot);
     const wtPath = worktreePath(this.repoRoot, taskId);
 
-    await git.raw(['worktree', 'remove', '--force', wtPath]);
+    await this.git.raw(['worktree', 'remove', '--force', wtPath]);
 
     try {
-      await git.raw(['branch', '-D', branch]);
+      await this.git.raw(['branch', '-D', branch]);
     } catch {
       // Branch may already be deleted
     }

@@ -1,4 +1,3 @@
-import { execSync } from 'node:child_process';
 import simpleGit from 'simple-git';
 import { TaskManager } from '../../core/task-manager.js';
 import { Reviewer } from '../../core/reviewer.js';
@@ -45,18 +44,16 @@ export async function acceptCommand(repoRoot: string, taskId: string): Promise<A
   }
 
   // Check for dirty working tree files that overlap with the task branch's changes
-  // Note: don't trim() the full output — leading spaces are part of porcelain status codes
-  const porcelain = execSync('git status --porcelain', { cwd: repoRoot, encoding: 'utf-8' });
+  const porcelain = (await git.raw(['status', '--porcelain'])).toString();
   const dirtyFiles = porcelain
     .split('\n')
     .filter((line) => line.length > 0 && !line.slice(3).startsWith('.agex/'))
     .map((line) => line.slice(3).trim());
 
   if (dirtyFiles.length > 0) {
-    // Get files changed on the task branch vs the merge base
-    const mergeBase = execSync(`git merge-base HEAD ${task.branch}`, { cwd: repoRoot, encoding: 'utf-8' }).trim();
-    const branchDiff = execSync(`git diff --name-only ${mergeBase}...${task.branch}`, { cwd: repoRoot, encoding: 'utf-8' }).trim();
-    const branchFiles = new Set(branchDiff.split('\n').filter(Boolean));
+    // Use three-dot diff which implicitly computes merge-base — no separate merge-base call needed
+    const branchDiff = await git.raw(['diff', '--name-only', `HEAD...${task.branch}`]);
+    const branchFiles = new Set(branchDiff.trim().split('\n').filter(Boolean));
 
     const overlapping = dirtyFiles.filter((f) => {
       // Handle renames: porcelain shows "old -> new"

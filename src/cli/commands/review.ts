@@ -15,7 +15,11 @@ export interface ReviewResult {
   files: FileStats[];
 }
 
-export async function reviewCommand(repoRoot: string, taskId: string): Promise<ReviewResult> {
+export async function reviewCommand(
+  repoRoot: string,
+  taskId: string,
+  opts?: { includePatch?: boolean },
+): Promise<ReviewResult> {
   const tm = new TaskManager(repoRoot);
   const reviewer = new Reviewer(repoRoot);
 
@@ -26,18 +30,17 @@ export async function reviewCommand(repoRoot: string, taskId: string): Promise<R
     });
   }
 
-  const stats = await reviewer.getDiff(task.branch);
-  const diffText = await reviewer.getDiffText(task.branch);
-  const commits = await reviewer.getCommitLog(task.branch);
-  const files = await reviewer.getPerFileStats(task.branch);
+  const review = await reviewer.collectReview(task.branch, {
+    includePatch: opts?.includePatch ?? true,
+  });
 
   return {
     id: taskId,
     prompt: task.prompt,
     branch: task.branch,
-    ...stats,
-    diff: diffText,
-    commits,
-    files,
+    ...review.stats,
+    diff: review.diff ?? '',
+    commits: review.commits,
+    files: review.files,
   };
 }

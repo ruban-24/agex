@@ -7,7 +7,7 @@ import { detectVerifyCommands } from '../../config/auto-detect.js';
 import { checkNeedsInput } from './task-exec.js';
 import { Reviewer } from '../../core/reviewer.js';
 import { AgexError } from '../../errors.js';
-import type { TaskRecord, QAPair } from '../../types.js';
+import type { TaskRecord, QAPair, AgexConfig } from '../../types.js';
 
 export interface AnswerOptions {
   text: string;
@@ -38,7 +38,8 @@ function buildAnswerPrompt(task: TaskRecord, answer: string): string {
 export async function answerCommand(
   repoRoot: string,
   taskId: string,
-  options: AnswerOptions
+  options: AnswerOptions,
+  preloadedConfig?: AgexConfig,
 ): Promise<TaskRecord> {
   const tm = new TaskManager(repoRoot);
   const task = await tm.getTask(taskId);
@@ -86,7 +87,7 @@ export async function answerCommand(
 
   const runner = new AgentRunner(repoRoot);
   const verifier = new Verifier();
-  const config = await loadConfig(repoRoot);
+  const config = preloadedConfig ?? await loadConfig(repoRoot);
   const wtPath = resolve(repoRoot, task.worktree);
   const timeoutMs = options.timeout ? options.timeout * 1000 : undefined;
 

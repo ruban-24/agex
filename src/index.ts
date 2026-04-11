@@ -1,66 +1,31 @@
 import { Command } from 'commander';
-import { accessSync, readFileSync } from 'node:fs';
+import { accessSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
-import { initCommand } from './cli/commands/init.js';
-import { interactiveInit } from './cli/commands/init-interactive.js';
 import type { AgentId } from './cli/skill-writer.js';
-import { taskCreateCommand } from './cli/commands/task-create.js';
-import { taskStatusCommand } from './cli/commands/task-status.js';
-import { taskExecCommand } from './cli/commands/task-exec.js';
-import { runCommand } from './cli/commands/run.js';
-import { listCommand } from './cli/commands/list.js';
-import { outputCommand } from './cli/commands/output.js';
-import { summaryCommand } from './cli/commands/summary.js';
-import { verifyCommand } from './cli/commands/verify.js';
-import { reviewCommand } from './cli/commands/review.js';
-import { compareCommand } from './cli/commands/compare.js';
-import { acceptCommand } from './cli/commands/accept.js';
-import { rejectCommand } from './cli/commands/reject.js';
-import { cleanCommand } from './cli/commands/clean.js';
-import { retryCommand } from './cli/commands/retry.js';
-import { answerCommand } from './cli/commands/answer.js';
-import { taskStartCommand } from './cli/commands/task-start.js';
-import { taskStopCommand } from './cli/commands/task-stop.js';
-import { cancelCommand } from './cli/commands/cancel.js';
 import { withAbsoluteWorktree, withAbsoluteWorktrees } from './cli/enrich.js';
 import { formatOutput, humanOutput } from './cli/output.js';
-import {
-  formatListHuman,
-  formatStatusHuman,
-  formatSummaryHuman,
-  formatReviewHuman,
-  formatVerifyHuman,
-  formatCompareHuman,
-  formatInitHuman,
-  formatTaskCreateHuman,
-  formatAcceptHuman,
-  formatRejectHuman,
-  formatCleanHuman,
-  formatRunHuman,
-  formatTaskExecHuman,
-  formatTaskStartHuman,
-  formatTaskStopHuman,
-  formatCancelHuman,
-  formatErrorHuman,
-  formatRetryHuman,
-  formatRetryDryRunHuman,
-  formatAnswerHuman,
-} from './cli/format/human.js';
 import { EXIT_CODES } from './constants.js';
 import { AgexError } from './errors.js';
 import { resolveWorktreeContext } from './utils/resolve-context.js';
 
+declare const AGEX_VERSION: string;
+
 let isHumanMode = false;
 
-const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
+// Lazy-loaded human formatters — only resolved when --human is used
+let _humanFmt: typeof import('./cli/format/human.js') | null = null;
+async function getHumanFmt() {
+  if (!_humanFmt) _humanFmt = await import('./cli/format/human.js');
+  return _humanFmt;
+}
 
 const program = new Command();
 
 program
   .name('agex')
   .description('A CLI runtime for running parallel AI coding tasks safely inside real repos')
-  .version(pkg.version);
+  .version(typeof AGEX_VERSION !== 'undefined' ? AGEX_VERSION : '0.0.0-dev');
 
 function getRepoRoot(): string {
   const ctx = resolveWorktreeContext();
@@ -96,13 +61,14 @@ function requireInit(repoRoot: string): void {
   }
 }
 
-function handleError(err: unknown, exitCode: number = EXIT_CODES.INVALID_ARGS): never {
+async function handleError(err: unknown, exitCode: number = EXIT_CODES.INVALID_ARGS): Promise<never> {
   const message = err instanceof Error ? err.message : String(err);
   const suggestion = err instanceof AgexError ? err.suggestion : undefined;
   const code = err instanceof AgexError ? err.exitCode : exitCode;
 
   if (isHumanMode) {
-    console.error(humanOutput(formatErrorHuman(message, suggestion)));
+    const fmt = await getHumanFmt();
+    console.error(humanOutput(fmt.formatErrorHuman(message, suggestion)));
   } else {
     console.error(JSON.stringify({ error: message, ...(suggestion && { suggestion }) }));
   }
@@ -123,7 +89,7 @@ program
       const repoRoot = getRepoRoot();
 
       if (opts.portEnv && !opts.run) {
-        handleError(new Error('--port-env requires --run'), EXIT_CODES.INVALID_ARGS);
+        await handleError(new Error('--port-env requires --run'), EXIT_CODES.INVALID_ARGS);
       }
 
       // Non-interactive when any flag is provided
@@ -131,20 +97,27 @@ program
 
       let result;
       if (isNonInteractive) {
+        const { initCommand } = await import('./cli/commands/init.js');
         const agents: AgentId[] = opts.agents
           ? opts.agents.split(',').map((s: string) => s.trim()) as AgentId[]
           : [];
         const run = opts.run ? { cmd: opts.run, ...(opts.portEnv ? { port_env: opts.portEnv } : {}) } : undefined;
         result = await initCommand(repoRoot, { verify: opts.verify, agents, run });
       } else {
+        const { interactiveInit } = await import('./cli/commands/init-interactive.js');
         result = await interactiveInit(repoRoot);
       }
 
       const useHuman = opts.human || !isNonInteractive;
-      console.log(useHuman ? humanOutput(formatInitHuman(result)) : formatOutput(result, false));
+      if (useHuman) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatInitHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
       process.exit(EXIT_CODES.SUCCESS);
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -160,15 +133,21 @@ program
       isHumanMode = opts.human;
       const root = getRepoRoot();
       requireInit(root);
+      const { taskCreateCommand } = await import('./cli/commands/task-create.js');
       const result = await taskCreateCommand(root, {
         prompt: opts.prompt,
         cmd: opts.cmd,
         issue: opts.issue,
       });
       const enriched = withAbsoluteWorktree(result, root);
-      console.log(opts.human ? humanOutput(formatTaskCreateHuman(enriched)) : formatOutput(enriched, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatTaskCreateHuman(enriched)));
+      } else {
+        console.log(formatOutput(enriched, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -182,17 +161,20 @@ program
       const taskId = resolveTaskId(id);
       const root = getRepoRoot();
       requireInit(root);
+      const { taskStatusCommand } = await import('./cli/commands/task-status.js');
+      const { outputCommand } = await import('./cli/commands/output.js');
       const result = await taskStatusCommand(root, taskId);
       const enriched = withAbsoluteWorktree(result, root);
       if (opts.human) {
         let logContent = '';
         try { logContent = await outputCommand(root, taskId); } catch {}
-        console.log(humanOutput(formatStatusHuman(enriched, logContent)));
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatStatusHuman(enriched, logContent)));
       } else {
         console.log(formatOutput(enriched, false));
       }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -210,15 +192,21 @@ program
       requireInit(root);
       const { loadConfig } = await import('./config/loader.js');
       const config = await loadConfig(root);
+      const { taskExecCommand } = await import('./cli/commands/task-exec.js');
       const result = await taskExecCommand(root, id, {
         cmd: opts.cmd,
         wait: opts.wait,
         timeout: opts.timeout ?? config.timeout,
-      });
+      }, config);
       const enriched = withAbsoluteWorktree(result, root);
-      console.log(opts.human ? humanOutput(formatTaskExecHuman(enriched)) : formatOutput(enriched, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatTaskExecHuman(enriched)));
+      } else {
+        console.log(formatOutput(enriched, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.AGENT_FAILED);
+      await handleError(err, EXIT_CODES.AGENT_FAILED);
     }
   });
 
@@ -231,10 +219,16 @@ program
       isHumanMode = opts.human;
       const root = getRepoRoot();
       requireInit(root);
+      const { taskStartCommand } = await import('./cli/commands/task-start.js');
       const result = await taskStartCommand(root, id);
-      console.log(opts.human ? humanOutput(formatTaskStartHuman(result)) : formatOutput(result, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatTaskStartHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -247,10 +241,16 @@ program
       isHumanMode = opts.human;
       const root = getRepoRoot();
       requireInit(root);
+      const { taskStopCommand } = await import('./cli/commands/task-stop.js');
       const result = await taskStopCommand(root, id);
-      console.log(opts.human ? humanOutput(formatTaskStopHuman(result)) : formatOutput(result, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatTaskStopHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -264,10 +264,16 @@ program
       const taskId = resolveTaskId(id);
       const root = getRepoRoot();
       requireInit(root);
+      const { cancelCommand } = await import('./cli/commands/cancel.js');
       const result = await cancelCommand(root, taskId);
-      console.log(opts.human ? humanOutput(formatCancelHuman(result)) : formatOutput(result, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatCancelHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -286,16 +292,22 @@ program
       requireInit(root);
       const { loadConfig } = await import('./config/loader.js');
       const config = await loadConfig(root);
+      const { runCommand } = await import('./cli/commands/run.js');
       const result = await runCommand(root, {
         prompt: opts.prompt,
         cmd: opts.cmd,
         wait: opts.wait,
         timeout: opts.timeout ?? config.timeout,
-      });
+      }, config);
       const enriched = withAbsoluteWorktree(result, root);
-      console.log(opts.human ? humanOutput(formatRunHuman(enriched)) : formatOutput(enriched, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatRunHuman(enriched)));
+      } else {
+        console.log(formatOutput(enriched, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.AGENT_FAILED);
+      await handleError(err, EXIT_CODES.AGENT_FAILED);
     }
   });
 
@@ -308,11 +320,17 @@ program
       isHumanMode = opts.human;
       const root = getRepoRoot();
       requireInit(root);
+      const { listCommand } = await import('./cli/commands/list.js');
       const result = await listCommand(root);
       const enriched = withAbsoluteWorktrees(result, root);
-      console.log(opts.human ? humanOutput(formatListHuman(enriched)) : formatOutput(enriched, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatListHuman(enriched)));
+      } else {
+        console.log(formatOutput(enriched, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -323,10 +341,11 @@ program
     try {
       const root = getRepoRoot();
       requireInit(root);
+      const { outputCommand } = await import('./cli/commands/output.js');
       const log = await outputCommand(root, id);
       console.log(log);
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -339,10 +358,16 @@ program
       isHumanMode = opts.human;
       const root = getRepoRoot();
       requireInit(root);
+      const { summaryCommand } = await import('./cli/commands/summary.js');
       const result = await summaryCommand(root);
-      console.log(opts.human ? humanOutput(formatSummaryHuman(result)) : formatOutput(result, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatSummaryHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -356,13 +381,19 @@ program
       const taskId = resolveTaskId(id);
       const root = getRepoRoot();
       requireInit(root);
+      const { verifyCommand } = await import('./cli/commands/verify.js');
       const result = await verifyCommand(root, taskId);
-      console.log(opts.human ? humanOutput(formatVerifyHuman(result)) : formatOutput(result, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatVerifyHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
       if (!result.passed) {
         process.exit(EXIT_CODES.VERIFICATION_FAILED);
       }
     } catch (err) {
-      handleError(err, EXIT_CODES.VERIFICATION_FAILED);
+      await handleError(err, EXIT_CODES.VERIFICATION_FAILED);
     }
   });
 
@@ -376,10 +407,16 @@ program
       const taskId = resolveTaskId(id);
       const root = getRepoRoot();
       requireInit(root);
-      const result = await reviewCommand(root, taskId);
-      console.log(opts.human ? humanOutput(formatReviewHuman(result)) : formatOutput(result, false));
+      const { reviewCommand } = await import('./cli/commands/review.js');
+      const result = await reviewCommand(root, taskId, { includePatch: !opts.human });
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatReviewHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -392,10 +429,16 @@ program
       isHumanMode = opts.human;
       const root = getRepoRoot();
       requireInit(root);
+      const { compareCommand } = await import('./cli/commands/compare.js');
       const result = await compareCommand(root, ids);
-      console.log(opts.human ? humanOutput(formatCompareHuman(result)) : formatOutput(result, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatCompareHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -409,6 +452,7 @@ program
       const taskId = resolveTaskId(id);
       const root = getRepoRoot();
       requireInit(root);
+      const { acceptCommand } = await import('./cli/commands/accept.js');
       const result = await acceptCommand(root, taskId);
       if (!result.merged) {
         throw new AgexError('Merge conflict', {
@@ -416,9 +460,14 @@ program
           exitCode: EXIT_CODES.MERGE_CONFLICT,
         });
       }
-      console.log(opts.human ? humanOutput(formatAcceptHuman(result)) : formatOutput(result, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatAcceptHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.MERGE_CONFLICT);
+      await handleError(err, EXIT_CODES.MERGE_CONFLICT);
     }
   });
 
@@ -432,11 +481,17 @@ program
       const taskId = resolveTaskId(id);
       const root = getRepoRoot();
       requireInit(root);
+      const { rejectCommand } = await import('./cli/commands/reject.js');
       const result = await rejectCommand(root, taskId);
       const enriched = withAbsoluteWorktree(result, root);
-      console.log(opts.human ? humanOutput(formatRejectHuman(enriched)) : formatOutput(enriched, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatRejectHuman(enriched)));
+      } else {
+        console.log(formatOutput(enriched, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -449,10 +504,16 @@ program
       isHumanMode = opts.human;
       const root = getRepoRoot();
       requireInit(root);
+      const { cleanCommand } = await import('./cli/commands/clean.js');
       const result = await cleanCommand(root);
-      console.log(opts.human ? humanOutput(formatCleanHuman(result)) : formatOutput(result, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatCleanHuman(result)));
+      } else {
+        console.log(formatOutput(result, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
     }
   });
 
@@ -471,6 +532,7 @@ program
       const repoRoot = getRepoRoot();
       requireInit(repoRoot);
       const id = resolveTaskId(taskId);
+      const { retryCommand } = await import('./cli/commands/retry.js');
       const result = await retryCommand(repoRoot, id, {
         feedback: opts.feedback,
         fromScratch: opts.fromScratch,
@@ -479,13 +541,23 @@ program
         wait: opts.wait,
       });
       if (opts.dryRun) {
-        console.log(opts.human ? humanOutput(formatRetryDryRunHuman(result.prompt)) : formatOutput({ prompt: result.prompt }, false));
+        if (opts.human) {
+          const fmt = await getHumanFmt();
+          console.log(humanOutput(fmt.formatRetryDryRunHuman(result.prompt)));
+        } else {
+          console.log(formatOutput({ prompt: result.prompt }, false));
+        }
       } else {
         const enriched = withAbsoluteWorktree(result, repoRoot);
-        console.log(opts.human ? humanOutput(formatRetryHuman(enriched)) : formatOutput(enriched, false));
+        if (opts.human) {
+          const fmt = await getHumanFmt();
+          console.log(humanOutput(fmt.formatRetryHuman(enriched)));
+        } else {
+          console.log(formatOutput(enriched, false));
+        }
       }
     } catch (err) {
-      handleError(err, EXIT_CODES.INVALID_ARGS);
+      await handleError(err, EXIT_CODES.INVALID_ARGS);
     }
   });
 
@@ -505,16 +577,22 @@ program
       const { loadConfig } = await import('./config/loader.js');
       const config = await loadConfig(repoRoot);
       const id = resolveTaskId(taskId);
+      const { answerCommand } = await import('./cli/commands/answer.js');
       const result = await answerCommand(repoRoot, id, {
         text: opts.text,
         cmd: opts.cmd,
         wait: opts.wait,
         timeout: opts.timeout ?? config.timeout,
-      });
+      }, config);
       const enriched = withAbsoluteWorktree(result, repoRoot);
-      console.log(opts.human ? humanOutput(formatAnswerHuman(enriched)) : formatOutput(enriched, false));
+      if (opts.human) {
+        const fmt = await getHumanFmt();
+        console.log(humanOutput(fmt.formatAnswerHuman(enriched)));
+      } else {
+        console.log(formatOutput(enriched, false));
+      }
     } catch (err) {
-      handleError(err, EXIT_CODES.INVALID_ARGS);
+      await handleError(err, EXIT_CODES.INVALID_ARGS);
     }
   });
 

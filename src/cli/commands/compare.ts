@@ -25,30 +25,30 @@ export async function compareCommand(
   const tm = new TaskManager(repoRoot);
   const reviewer = new Reviewer(repoRoot);
 
-  const tasks: CompareTaskInfo[] = [];
+  const tasks = await Promise.all(
+    taskIds.map(async (id) => {
+      const task = await tm.getTask(id);
+      if (!task) {
+        throw new AgexError(`Task not found: ${id}`, {
+          suggestion: "Run 'agex list' to see available tasks",
+        });
+      }
 
-  for (const id of taskIds) {
-    const task = await tm.getTask(id);
-    if (!task) {
-      throw new AgexError(`Task not found: ${id}`, {
-        suggestion: "Run 'agex list' to see available tasks",
-      });
-    }
+      const stats = await reviewer.getDiff(task.branch);
 
-    const stats = await reviewer.getDiff(task.branch);
-
-    tasks.push({
-      id: task.id,
-      prompt: task.prompt,
-      status: task.status,
-      duration_s: task.duration_s,
-      checks_passed: task.verification?.checks.filter((c) => c.passed).length,
-      checks_total: task.verification?.checks.length,
-      files_changed: stats.files_changed,
-      insertions: stats.insertions,
-      deletions: stats.deletions,
-    });
-  }
+      return {
+        id: task.id,
+        prompt: task.prompt,
+        status: task.status,
+        duration_s: task.duration_s,
+        checks_passed: task.verification?.checks.filter((c) => c.passed).length,
+        checks_total: task.verification?.checks.length,
+        files_changed: stats.files_changed,
+        insertions: stats.insertions,
+        deletions: stats.deletions,
+      };
+    })
+  );
 
   return { tasks };
 }

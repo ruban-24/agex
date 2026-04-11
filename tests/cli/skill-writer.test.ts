@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   AGENT_PATHS,
-  SKILL_CONTENT,
+  getSkillContent,
   HOOK_CONTENT,
   writeSkillFiles,
 } from '../../src/cli/skill-writer.js';
@@ -23,29 +23,29 @@ describe('AGENT_PATHS', () => {
   });
 });
 
-describe('SKILL_CONTENT', () => {
+describe('getSkillContent', () => {
   it('contains the agex skill frontmatter', () => {
-    expect(SKILL_CONTENT).toContain('name: agex');
+    expect(getSkillContent()).toContain('name: agex');
   });
 
   it('contains the workflow section', () => {
-    expect(SKILL_CONTENT).toContain('## Core Workflows');
+    expect(getSkillContent()).toContain('## Core Workflows');
   });
 
   it('contains retry command reference', () => {
-    expect(SKILL_CONTENT).toContain('agex retry');
+    expect(getSkillContent()).toContain('agex retry');
   });
 
   it('contains answer command reference', () => {
-    expect(SKILL_CONTENT).toContain('agex answer');
+    expect(getSkillContent()).toContain('agex answer');
   });
 
   it('contains needs-input workflow section', () => {
-    expect(SKILL_CONTENT).toContain('needs-input.json');
+    expect(getSkillContent()).toContain('needs-input.json');
   });
 
   it('contains updated lifecycle with needs-input', () => {
-    expect(SKILL_CONTENT).toContain('needs-input');
+    expect(getSkillContent()).toContain('needs-input');
   });
 });
 
@@ -86,7 +86,7 @@ describe('writeSkillFiles', () => {
     expect(written).toContain('.claude/settings.local.json');
 
     const skill = await readFile(join(repo.path, '.claude/skills/agex/SKILL.md'), 'utf-8');
-    expect(skill).toBe(SKILL_CONTENT);
+    expect(skill).toBe(getSkillContent());
 
     const hook = await readFile(join(repo.path, '.claude/hooks/agex-gate.md'), 'utf-8');
     expect(hook).toBe(HOOK_CONTENT);
@@ -147,7 +147,7 @@ describe('writeSkillFiles', () => {
 
     expect(written).toContain('.agents/skills/agex/SKILL.md');
     const skill = await readFile(join(repo.path, '.agents/skills/agex/SKILL.md'), 'utf-8');
-    expect(skill).toBe(SKILL_CONTENT);
+    expect(skill).toBe(getSkillContent());
   });
 
   it('does not duplicate agex hook when run twice', async () => {

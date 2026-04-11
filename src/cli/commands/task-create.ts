@@ -3,7 +3,7 @@ import { WorkspaceManager } from '../../core/workspace-manager.js';
 import { loadConfig } from '../../config/loader.js';
 import { AgexError } from '../../errors.js';
 import { EXIT_CODES } from '../../constants.js';
-import type { TaskRecord } from '../../types.js';
+import type { TaskRecord, AgexConfig } from '../../types.js';
 import { parseIssueRef, fetchGitHubIssue, buildIssuePrompt } from '../github.js';
 
 export interface TaskCreateOptions {
@@ -14,9 +14,10 @@ export interface TaskCreateOptions {
 
 export async function taskCreateCommand(
   repoRoot: string,
-  options: TaskCreateOptions
+  options: TaskCreateOptions,
+  preloadedConfig?: AgexConfig,
 ): Promise<TaskRecord> {
-  const config = await loadConfig(repoRoot);
+  const config = preloadedConfig ?? await loadConfig(repoRoot);
   const tm = new TaskManager(repoRoot);
   const wm = new WorkspaceManager(repoRoot);
 

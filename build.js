@@ -1,5 +1,7 @@
 import { build } from 'esbuild';
-import { rmSync, chmodSync } from 'fs';
+import { rmSync, chmodSync, readFileSync } from 'fs';
+
+const pkg = JSON.parse(readFileSync('package.json', 'utf-8'));
 
 rmSync('dist', { recursive: true, force: true });
 
@@ -13,6 +15,9 @@ await build({
   sourcemap: true,
   banner: { js: '#!/usr/bin/env node' },
   packages: 'external',
+  define: {
+    'AGEX_VERSION': JSON.stringify(pkg.version),
+  },
 });
 
 chmodSync('dist/index.js', 0o755);
