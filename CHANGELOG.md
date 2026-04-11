@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.6 — 2026-04-11
+
+### Performance
+
+- **Lazy command loading:** CLI startup no longer eagerly imports all 20+ command modules. Each command is loaded on demand via dynamic `import()`, so `agex --help`, `agex list`, etc. skip loading simple-git, execa, and js-yaml entirely.
+- **Deferred SKILL.md read:** The skill file was read synchronously at module scope on every invocation — now deferred to first use inside `writeSkillFiles()`.
+- **Build-time version:** Package version is embedded via esbuild `define` at build time, eliminating a runtime `readFileSync` of `package.json` on every invocation.
+- **Reviewer: single merge-base + parallel git ops:** `agex review` dropped from 9 git subprocess spawns (with 4 redundant `merge-base` calls) to 5 parallel calls with a single shared merge-base. New `collectReview()` API deduplicates the `--numstat` call shared by stats and per-file data.
+- **Skip patch text in human mode:** `agex review --human` no longer generates the full diff text (which `formatReviewHuman` never displayed).
+- **TaskManager write-through cache:** Rapid `updateTask`/`updateStatus` chains (e.g. `exec --wait` flow) skip re-reading a file that was just written. Eliminates ~6 redundant disk reads per blocking exec.
+- **Lightweight port allocation:** `createTask` no longer calls `listTasks()` (which runs `recoverIfStale` on every task). New `getUsedPorts()` reads only the port field from each task JSON.
+- **Config resolve-once:** `run` command was reading config 3 times (index.ts → task-create → task-exec). Config is now resolved once and passed through the call chain.
+- **Accept: async + deduplicated git:** Replaced 3 blocking `execSync` calls with async `simple-git`. Removed redundant `git status --porcelain` (already done in `commitAll`) and explicit `merge-base` (three-dot diff is implicit). Total git spawns reduced from ~12 to ~6.
+- **Cached simpleGit instances:** `Reviewer` and `WorkspaceManager` now cache their `simpleGit` instance at class level instead of creating 15+ instances across the codebase.
+
 ## 0.3.5 — 2026-04-11
 
 ### Improvements
