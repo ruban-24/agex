@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import {
   AGENT_PATHS,
   SKILL_CONTENT,
+  HOOK_CONTENT,
   writeSkillFiles,
 } from '../../src/cli/skill-writer.js';
 import { createTestRepo, type TestRepo } from '../helpers/test-repo.js';
@@ -48,6 +49,24 @@ describe('SKILL_CONTENT', () => {
   });
 });
 
+describe('HOOK_CONTENT', () => {
+  it('contains the agex gate header', () => {
+    expect(HOOK_CONTENT).toContain('AGEX GATE');
+  });
+
+  it('references agex create', () => {
+    expect(HOOK_CONTENT).toContain('agex create');
+  });
+
+  it('references agex verify', () => {
+    expect(HOOK_CONTENT).toContain('agex verify');
+  });
+
+  it('warns against raw worktrees', () => {
+    expect(HOOK_CONTENT).toContain('Do NOT use raw git worktrees');
+  });
+});
+
 describe('writeSkillFiles', () => {
   let repo: TestRepo;
 
@@ -59,31 +78,60 @@ describe('writeSkillFiles', () => {
     await repo.cleanup();
   });
 
-  it('writes skill file and instruction file for claude-code', async () => {
+  it('writes skill file, hook file, and settings.json for claude-code', async () => {
     const written = await writeSkillFiles(repo.path, ['claude-code']);
 
     expect(written).toContain('.claude/skills/agex/SKILL.md');
-    expect(written).toContain('CLAUDE.md');
+    expect(written).toContain('.claude/hooks/agex-gate.md');
+    expect(written).toContain('.claude/settings.json');
 
     const skill = await readFile(join(repo.path, '.claude/skills/agex/SKILL.md'), 'utf-8');
     expect(skill).toBe(SKILL_CONTENT);
 
-    const instructions = await readFile(join(repo.path, 'CLAUDE.md'), 'utf-8');
-    expect(instructions).toContain('## agex');
-    expect(instructions).toContain('agex create');
+    const hook = await readFile(join(repo.path, '.claude/hooks/agex-gate.md'), 'utf-8');
+    expect(hook).toBe(HOOK_CONTENT);
+
+    const settings = JSON.parse(await readFile(join(repo.path, '.claude/settings.json'), 'utf-8'));
+    expect(settings.hooks.SessionStart).toHaveLength(1);
+    expect(settings.hooks.SessionStart[0].hooks[0].type).toBe('command');
+    expect(settings.hooks.SessionStart[0].hooks[0].command).toContain('agex-gate');
   });
 
-  it('writes skill files for multiple agents with shared AGENTS.md', async () => {
+  it('writes hook config for codex with correct structure', async () => {
+    const written = await writeSkillFiles(repo.path, ['codex']);
+
+    expect(written).toContain('.agents/skills/agex/SKILL.md');
+    expect(written).toContain('.codex/hooks/agex-gate.md');
+    expect(written).toContain('.codex/hooks.json');
+
+    const config = JSON.parse(await readFile(join(repo.path, '.codex/hooks.json'), 'utf-8'));
+    expect(config.hooks.SessionStart).toHaveLength(1);
+    expect(config.hooks.SessionStart[0].hooks[0].command).toContain('agex-gate');
+  });
+
+  it('writes hook config for copilot with version and bash fields', async () => {
+    const written = await writeSkillFiles(repo.path, ['copilot']);
+
+    expect(written).toContain('.github/skills/agex/SKILL.md');
+    expect(written).toContain('.github/hooks/agex-gate.md');
+    expect(written).toContain('.github/hooks/hooks.json');
+
+    const config = JSON.parse(await readFile(join(repo.path, '.github/hooks/hooks.json'), 'utf-8'));
+    expect(config.version).toBe(1);
+    expect(config.hooks.sessionStart).toHaveLength(1);
+    expect(config.hooks.sessionStart[0].type).toBe('command');
+    expect(config.hooks.sessionStart[0].bash).toContain('agex-gate');
+  });
+
+  it('writes skill files for multiple agents', async () => {
     const written = await writeSkillFiles(repo.path, ['claude-code', 'codex', 'copilot']);
 
     expect(written).toContain('.claude/skills/agex/SKILL.md');
     expect(written).toContain('.agents/skills/agex/SKILL.md');
     expect(written).toContain('.github/skills/agex/SKILL.md');
-    expect(written).toContain('CLAUDE.md');
-    expect(written).toContain('AGENTS.md');
-
-    // codex and copilot share AGENTS.md — should only appear once
-    expect(written.filter(f => f === 'AGENTS.md')).toHaveLength(1);
+    expect(written).toContain('.claude/settings.json');
+    expect(written).toContain('.codex/hooks.json');
+    expect(written).toContain('.github/hooks/hooks.json');
   });
 
   it('returns empty array when no agents selected', async () => {
@@ -95,30 +143,44 @@ describe('writeSkillFiles', () => {
     const written = await writeSkillFiles(repo.path, ['codex']);
 
     expect(written).toContain('.agents/skills/agex/SKILL.md');
-    expect(written).toContain('AGENTS.md');
-
     const skill = await readFile(join(repo.path, '.agents/skills/agex/SKILL.md'), 'utf-8');
     expect(skill).toBe(SKILL_CONTENT);
   });
 
-  it('does not duplicate agex block if already present', async () => {
+  it('does not duplicate agex hook when run twice', async () => {
     await writeSkillFiles(repo.path, ['claude-code']);
     await writeSkillFiles(repo.path, ['claude-code']);
 
-    const instructions = await readFile(join(repo.path, 'CLAUDE.md'), 'utf-8');
-    const matches = instructions.match(/## agex/g);
-    expect(matches).toHaveLength(1);
+    const settings = JSON.parse(await readFile(join(repo.path, '.claude/settings.json'), 'utf-8'));
+    expect(settings.hooks.SessionStart).toHaveLength(1);
   });
 
-  it('appends to existing instruction file without overwriting', async () => {
-    const existing = '# My Project\n\nSome existing instructions.\n';
+  it('merges into existing settings.json without overwriting other hooks', async () => {
     const { writeFile: wf } = await import('node:fs/promises');
-    await wf(join(repo.path, 'CLAUDE.md'), existing);
+    const { mkdir: mk } = await import('node:fs/promises');
+    await mk(join(repo.path, '.claude'), { recursive: true });
+    await wf(join(repo.path, '.claude/settings.json'), JSON.stringify({
+      permissions: { allow: ['Bash(git:*)'] },
+      hooks: {
+        PreToolUse: [{ hooks: [{ type: 'command', command: 'echo pre' }] }],
+      },
+    }, null, 2));
 
     await writeSkillFiles(repo.path, ['claude-code']);
 
-    const content = await readFile(join(repo.path, 'CLAUDE.md'), 'utf-8');
-    expect(content).toContain('# My Project');
-    expect(content).toContain('## agex');
+    const settings = JSON.parse(await readFile(join(repo.path, '.claude/settings.json'), 'utf-8'));
+    // Existing hooks preserved
+    expect(settings.permissions.allow).toContain('Bash(git:*)');
+    expect(settings.hooks.PreToolUse).toHaveLength(1);
+    // New hook added
+    expect(settings.hooks.SessionStart).toHaveLength(1);
+  });
+
+  it('does not write CLAUDE.md or AGENTS.md', async () => {
+    await writeSkillFiles(repo.path, ['claude-code', 'codex', 'copilot']);
+
+    // No instruction files should be created
+    await expect(readFile(join(repo.path, 'CLAUDE.md'), 'utf-8')).rejects.toThrow();
+    await expect(readFile(join(repo.path, 'AGENTS.md'), 'utf-8')).rejects.toThrow();
   });
 });

@@ -18,24 +18,110 @@ export const AGENT_PATHS: Record<AgentId, string> = {
   'copilot': '.github/skills/agex/SKILL.md',
 };
 
-// Instruction files that agents read at session start (CLAUDE.md = when, SKILL.md = how)
-export const AGENT_INSTRUCTION_FILES: Record<AgentId, string> = {
-  'claude-code': 'CLAUDE.md',
-  'codex': 'AGENTS.md',
-  'copilot': 'AGENTS.md',
+// Hook config file paths per agent
+const AGENT_HOOK_CONFIG_PATHS: Record<AgentId, string> = {
+  'claude-code': '.claude/settings.json',
+  'codex': '.codex/hooks.json',
+  'copilot': '.github/hooks/hooks.json',
 };
 
-const INSTRUCTION_BLOCK = `
-## agex
+// Hook content file paths per agent
+const AGENT_HOOK_FILE_PATHS: Record<AgentId, string> = {
+  'claude-code': '.claude/hooks/agex-gate.md',
+  'codex': '.codex/hooks/agex-gate.md',
+  'copilot': '.github/hooks/agex-gate.md',
+};
 
-This repo uses agex for worktree-isolated task management.
+// SessionStart hook content — the "agex gate" injected at conversation start
+export const HOOK_CONTENT = `AGEX GATE — Read this before doing anything.
 
-**All non-trivial work MUST go through \`agex create\`.** NEVER edit code files directly on main unless it is a single-file trivial fix (typo, config tweak, one-line change).
+Before editing ANY file, ask yourself:
+1. Is this a single-file trivial fix (typo, config tweak, one-line change)? → Edit directly on main.
+2. Everything else? → Run \`agex create --prompt "..."\` first, cd into the worktree, work there.
 
-If you are about to edit more than one file, STOP — create an agex task first. No exceptions, no rationalizing ("the files overlap", "it's easier sequentially", "I'll just do it quickly"). Those are exactly the cases where isolation prevents mistakes.
-
-When multiple parts of the work are independent, create separate agex tasks and work them in parallel.
+Do NOT use raw git worktrees or built-in worktree isolation tools. This repo uses agex for all worktree isolation.
+Do NOT run tests/lint/build manually — use \`agex verify <id>\` as the final gate.
+Invoke the \`agex\` skill for full workflow and command reference.
 `;
+
+/**
+ * Build the hook config JSON for a given agent, merging into existing config if present.
+ */
+function buildHookConfig(agent: AgentId, hookFilePath: string, existing: Record<string, unknown> | null): Record<string, unknown> {
+  const hookCommand = `cat ${hookFilePath}`;
+
+  switch (agent) {
+    case 'claude-code': {
+      const config = existing ?? {};
+      const hooks = (config.hooks as Record<string, unknown[]>) ?? {};
+      const sessionStart = (hooks.SessionStart as unknown[]) ?? [];
+
+      // Check if we already have an agex hook
+      const hasAgexHook = sessionStart.some((entry: unknown) => {
+        const e = entry as Record<string, unknown>;
+        const innerHooks = e.hooks as Array<Record<string, unknown>> | undefined;
+        return innerHooks?.some(h => typeof h.command === 'string' && h.command.includes('agex-gate'));
+      });
+
+      if (!hasAgexHook) {
+        sessionStart.push({
+          hooks: [{
+            type: 'command',
+            command: hookCommand,
+            timeout: 5,
+          }],
+        });
+      }
+
+      return { ...config, hooks: { ...hooks, SessionStart: sessionStart } };
+    }
+
+    case 'codex': {
+      const config = existing ?? {};
+      const hooks = (config.hooks as Record<string, unknown[]>) ?? {};
+      const sessionStart = (hooks.SessionStart as unknown[]) ?? [];
+
+      const hasAgexHook = sessionStart.some((entry: unknown) => {
+        const e = entry as Record<string, unknown>;
+        const innerHooks = e.hooks as Array<Record<string, unknown>> | undefined;
+        return innerHooks?.some(h => typeof h.command === 'string' && h.command.includes('agex-gate'));
+      });
+
+      if (!hasAgexHook) {
+        sessionStart.push({
+          hooks: [{
+            type: 'command',
+            command: hookCommand,
+          }],
+        });
+      }
+
+      return { ...config, hooks: { ...hooks, SessionStart: sessionStart } };
+    }
+
+    case 'copilot': {
+      const config = existing ?? { version: 1 };
+      const hooks = (config.hooks as Record<string, unknown[]>) ?? {};
+      const sessionStart = (hooks.sessionStart as unknown[]) ?? [];
+
+      const hasAgexHook = sessionStart.some((entry: unknown) => {
+        const e = entry as Record<string, unknown>;
+        return typeof e.bash === 'string' && e.bash.includes('agex-gate');
+      });
+
+      if (!hasAgexHook) {
+        sessionStart.push({
+          type: 'command',
+          bash: hookCommand,
+          timeoutSec: 5,
+        });
+      }
+
+      // Copilot uses lowercase sessionStart
+      return { ...config, hooks: { ...hooks, sessionStart: sessionStart } };
+    }
+  }
+}
 
 // Single source of truth: skills/agex/SKILL.md — read at runtime.
 // Try two relative paths: dev (src/cli/) and prod (dist/).
@@ -48,9 +134,8 @@ try {
 export const SKILL_CONTENT: string = _skillContent;
 
 /**
- * Write the agex SKILL.md file and append instructions to the agent's
- * instruction file (CLAUDE.md / AGENTS.md) for each selected agent.
- * Creates parent directories as needed.
+ * Write the agex SKILL.md file and configure a SessionStart hook
+ * for each selected agent. Creates parent directories as needed.
  * Returns the array of relative paths that were written or modified.
  */
 export async function writeSkillFiles(
@@ -58,7 +143,6 @@ export async function writeSkillFiles(
   agents: AgentId[],
 ): Promise<string[]> {
   const written: string[] = [];
-  const updatedInstructionFiles = new Set<string>();
 
   for (const agent of agents) {
     // Write SKILL.md
@@ -68,24 +152,29 @@ export async function writeSkillFiles(
     await writeFile(absPath, SKILL_CONTENT, 'utf-8');
     written.push(relPath);
 
-    // Append to instruction file (CLAUDE.md / AGENTS.md) — once per file
-    const instrFile = AGENT_INSTRUCTION_FILES[agent];
-    if (updatedInstructionFiles.has(instrFile)) continue;
-    updatedInstructionFiles.add(instrFile);
+    // Write hook content file
+    const hookFileRel = AGENT_HOOK_FILE_PATHS[agent];
+    const hookFileAbs = join(repoRoot, hookFileRel);
+    await mkdir(dirname(hookFileAbs), { recursive: true });
+    await writeFile(hookFileAbs, HOOK_CONTENT, 'utf-8');
+    written.push(hookFileRel);
 
-    const instrPath = join(repoRoot, instrFile);
-    let existing = '';
+    // Write or merge hook config
+    const configRel = AGENT_HOOK_CONFIG_PATHS[agent];
+    const configAbs = join(repoRoot, configRel);
+    await mkdir(dirname(configAbs), { recursive: true });
+
+    let existing: Record<string, unknown> | null = null;
     try {
-      existing = await readFile(instrPath, 'utf-8');
+      const raw = await readFile(configAbs, 'utf-8');
+      existing = JSON.parse(raw);
     } catch {
-      // File doesn't exist yet
+      // File doesn't exist or isn't valid JSON
     }
 
-    if (!existing.includes('## agex')) {
-      const content = existing.trimEnd() + '\n' + INSTRUCTION_BLOCK;
-      await writeFile(instrPath, content, 'utf-8');
-      written.push(instrFile);
-    }
+    const config = buildHookConfig(agent, hookFileRel, existing);
+    await writeFile(configAbs, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    written.push(configRel);
   }
 
   return written;

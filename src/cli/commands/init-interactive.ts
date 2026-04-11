@@ -109,7 +109,7 @@ export async function interactiveInit(
 
   // 4. Agent selection
   write(`\n  ${bold('Which agents do you use?')}\n`);
-  write(`  ${dim('Agent-specific CLAUDE.md / AGENTS.md files will be generated')}\n`);
+  write(`  ${dim('Agent-specific skills and session hooks will be configured')}\n`);
 
   const agentOptions: SelectOption<AgentId>[] = VALID_AGENT_IDS.map((id) => ({
     label: AGENT_LABELS[id],
