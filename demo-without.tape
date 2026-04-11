@@ -3,9 +3,9 @@
 
 Output docs/without-agex.gif
 
-Set FontSize 14
-Set Width 640
-Set Height 440
+Set FontSize 22
+Set Width 960
+Set Height 640
 Set Theme "Catppuccin Mocha"
 Set Padding 20
 Set TypingSpeed 35ms
