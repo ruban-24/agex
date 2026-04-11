@@ -34,6 +34,49 @@ describe('detectVerifyCommands', () => {
     expect(cmds).toContain(expected);
   });
 
+  it('detects swift build and swift test from Package.swift', async () => {
+    await writeFile(join(repo.path, 'Package.swift'), '// swift-tools-version: 5.9\n');
+    const cmds = await detectVerifyCommands(repo.path);
+    expect(cmds).toContain('swift build');
+    expect(cmds).toContain('swift test');
+  });
+
+  it('detects xcodegen generate and xcodebuild build from project.yml + xcodeproj', async () => {
+    await writeFile(join(repo.path, 'project.yml'), 'name: MyApp\n');
+    await mkdir(join(repo.path, 'MyApp.xcodeproj'), { recursive: true });
+    const cmds = await detectVerifyCommands(repo.path);
+    expect(cmds).toContain('xcodegen generate');
+    expect(cmds).toContain('xcodebuild build');
+  });
+
+  it('detects xcodebuild build from plain xcodeproj without xcodegen', async () => {
+    await mkdir(join(repo.path, 'MyApp.xcodeproj'), { recursive: true });
+    const cmds = await detectVerifyCommands(repo.path);
+    expect(cmds).toContain('xcodebuild build');
+    expect(cmds).not.toContain('xcodegen generate');
+  });
+
+  it('does not detect xcode commands when Package.swift exists', async () => {
+    await writeFile(join(repo.path, 'Package.swift'), '// swift-tools-version: 5.9\n');
+    await mkdir(join(repo.path, 'MyApp.xcodeproj'), { recursive: true });
+    const cmds = await detectVerifyCommands(repo.path);
+    expect(cmds).toContain('swift build');
+    expect(cmds).not.toContain('xcodebuild build');
+  });
+
+  it('detects xcodegen from project.yml even without xcodeproj directory', async () => {
+    await writeFile(join(repo.path, 'project.yml'), 'name: MyApp\n');
+    const cmds = await detectVerifyCommands(repo.path);
+    expect(cmds).toContain('xcodegen generate');
+    expect(cmds).toContain('xcodebuild build');
+  });
+
+  it('detects swiftlint from .swiftlint.yml', async () => {
+    await writeFile(join(repo.path, '.swiftlint.yml'), 'disabled_rules:\n  - line_length\n');
+    const cmds = await detectVerifyCommands(repo.path);
+    expect(cmds).toContain('swiftlint');
+  });
+
   it('detects all three npm scripts when present', async () => {
     await writeFile(
       join(repo.path, 'package.json'),
@@ -92,6 +135,21 @@ describe('detectProvisioning', () => {
     );
     const config = await detectProvisioning(repo.path);
     expect(config.setup).toBeUndefined();
+  });
+
+  it('detects SPM provisioning: swift package resolve setup and .build symlink', async () => {
+    await writeFile(join(repo.path, 'Package.swift'), '// swift-tools-version: 5.9\n');
+    await mkdir(join(repo.path, '.build'), { recursive: true });
+    const config = await detectProvisioning(repo.path);
+    expect(config.setup).toEqual(['swift package resolve']);
+    expect(config.symlink).toEqual(['.build']);
+  });
+
+  it('detects XcodeGen provisioning: xcodegen generate setup', async () => {
+    await writeFile(join(repo.path, 'project.yml'), 'name: MyApp\n');
+    await mkdir(join(repo.path, 'MyApp.xcodeproj'), { recursive: true });
+    const config = await detectProvisioning(repo.path);
+    expect(config.setup).toEqual(['xcodegen generate']);
   });
 
   it('detects multiple aspects together', async () => {
@@ -207,6 +265,45 @@ describe('detectProjectType', () => {
     await writeFile(join(repo.path, file), content);
     const type = await detectProjectType(repo.path);
     expect(type).toBe(expected);
+  });
+
+  it('detects Swift (Package.swift)', async () => {
+    await writeFile(join(repo.path, 'Package.swift'), '// swift-tools-version: 5.9\n');
+    const type = await detectProjectType(repo.path);
+    expect(type).toBe('Swift (Package.swift)');
+  });
+
+  it('detects Swift/Xcode (XcodeGen) from project.yml alone', async () => {
+    await writeFile(join(repo.path, 'project.yml'), 'name: MyApp\n');
+    const type = await detectProjectType(repo.path);
+    expect(type).toBe('Swift/Xcode (XcodeGen)');
+  });
+
+  it('detects Swift/Xcode (.xcodeproj) from plain xcodeproj', async () => {
+    await mkdir(join(repo.path, 'MyApp.xcodeproj'), { recursive: true });
+    const type = await detectProjectType(repo.path);
+    expect(type).toBe('Swift/Xcode (.xcodeproj)');
+  });
+
+  it('prefers Package.swift over xcodeproj', async () => {
+    await writeFile(join(repo.path, 'Package.swift'), '// swift-tools-version: 5.9\n');
+    await mkdir(join(repo.path, 'MyApp.xcodeproj'), { recursive: true });
+    const type = await detectProjectType(repo.path);
+    expect(type).toBe('Swift (Package.swift)');
+  });
+
+  it('prefers Package.swift over project.yml + xcodeproj combined', async () => {
+    await writeFile(join(repo.path, 'Package.swift'), '// swift-tools-version: 5.9\n');
+    await writeFile(join(repo.path, 'project.yml'), 'name: MyApp\n');
+    await mkdir(join(repo.path, 'MyApp.xcodeproj'), { recursive: true });
+    const type = await detectProjectType(repo.path);
+    expect(type).toBe('Swift (Package.swift)');
+  });
+
+  it('detects XcodeGen even without existing xcodeproj directory', async () => {
+    await writeFile(join(repo.path, 'project.yml'), 'name: MyApp\n');
+    const type = await detectProjectType(repo.path);
+    expect(type).toBe('Swift/Xcode (XcodeGen)');
   });
 
   it('returns first match by priority when multiple files exist', async () => {

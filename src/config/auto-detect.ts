@@ -1,4 +1,4 @@
-import { readFile, access, stat } from 'node:fs/promises';
+import { readFile, readdir, access, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AgexConfig, RunConfig } from '../types.js';
 
@@ -17,6 +17,15 @@ async function dirExists(path: string): Promise<boolean> {
   try {
     const s = await stat(path);
     return s.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function hasXcodeprojDir(repoRoot: string): Promise<boolean> {
+  try {
+    const entries = await readdir(repoRoot);
+    return entries.some(e => e.endsWith('.xcodeproj'));
   } catch {
     return false;
   }
@@ -67,6 +76,30 @@ export async function detectVerifyCommands(repoRoot: string): Promise<string[]> 
     commands.push('go test ./...');
   }
 
+  // Check Package.swift (SPM)
+  if (await fileExists(join(repoRoot, 'Package.swift'))) {
+    commands.push('swift build');
+    commands.push('swift test');
+  }
+
+  // Check for Xcode project (XcodeGen or plain)
+  if (!await fileExists(join(repoRoot, 'Package.swift'))) {
+    const hasXcodeGen = await fileExists(join(repoRoot, 'project.yml'));
+    const hasXcodeproj = await hasXcodeprojDir(repoRoot);
+
+    if (hasXcodeGen) {
+      commands.push('xcodegen generate');
+      commands.push('xcodebuild build');
+    } else if (hasXcodeproj) {
+      commands.push('xcodebuild build');
+    }
+  }
+
+  // Check for SwiftLint
+  if (await fileExists(join(repoRoot, '.swiftlint.yml'))) {
+    commands.push('swiftlint');
+  }
+
   return commands;
 }
 
@@ -109,6 +142,23 @@ export async function detectProvisioning(repoRoot: string): Promise<Provisioning
   // go.mod → go mod download
   if (!config.setup && await fileExists(join(repoRoot, 'go.mod'))) {
     config.setup = ['go mod download'];
+  }
+
+  // Package.swift (SPM) → symlink .build
+  if (await fileExists(join(repoRoot, 'Package.swift'))) {
+    if (await dirExists(join(repoRoot, '.build'))) {
+      config.symlink = [...(config.symlink || []), '.build'];
+    }
+    if (!config.setup) {
+      config.setup = ['swift package resolve'];
+    }
+  }
+
+  // XcodeGen project → setup: xcodegen generate
+  if (!await fileExists(join(repoRoot, 'Package.swift')) && await fileExists(join(repoRoot, 'project.yml'))) {
+    if (!config.setup) {
+      config.setup = ['xcodegen generate'];
+    }
   }
 
   return config;
@@ -167,6 +217,17 @@ export async function detectRunConfig(repoRoot: string): Promise<RunConfig | nul
 }
 
 export async function detectProjectType(repoRoot: string): Promise<string | null> {
+  // Check Swift/Xcode first (more specific checks)
+  if (await fileExists(join(repoRoot, 'Package.swift'))) {
+    return 'Swift (Package.swift)';
+  }
+  if (await fileExists(join(repoRoot, 'project.yml'))) {
+    return 'Swift/Xcode (XcodeGen)';
+  }
+  if (await hasXcodeprojDir(repoRoot)) {
+    return 'Swift/Xcode (.xcodeproj)';
+  }
+
   const checks: [string, string][] = [
     ['package.json', 'Node.js (package.json)'],
     ['pyproject.toml', 'Python (pyproject.toml)'],

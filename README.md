@@ -265,6 +265,10 @@ If no `verify` commands are configured, agex auto-detects from your project:
 | `pyproject.toml` | `pytest` |
 | `Cargo.toml` | `cargo test` |
 | `go.mod` | `go test ./...` |
+| `Package.swift` | `swift build`, `swift test` |
+| `project.yml` (XcodeGen) | `xcodegen generate`, `xcodebuild build` |
+| `*.xcodeproj` | `xcodebuild build` |
+| `.swiftlint.yml` | `swiftlint` |
 
 <details>
 <summary>Subprocess mode (CI, scripting, multi-agent)</summary>
