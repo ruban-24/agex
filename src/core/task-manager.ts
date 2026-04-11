@@ -136,7 +136,7 @@ export class TaskManager {
     provisioning: ['ready', 'errored', 'discarded'],
     ready: ['running', 'verifying', 'merged', 'discarded'],
     running: ['verifying', 'needs-input', 'errored'],
-    verifying: ['completed', 'failed'],
+    verifying: ['verifying', 'completed', 'failed'],
     completed: ['merged', 'discarded', 'retried'],
     failed: ['discarded', 'retried'],
     errored: ['discarded', 'retried'],

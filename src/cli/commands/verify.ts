@@ -13,8 +13,8 @@ export interface VerifyResult {
   checks: VerificationCheck[];
 }
 
-// Statuses that can transition to 'verifying'
-const VERIFYABLE_STATUSES = ['running', 'ready'];
+// Statuses that can transition to 'verifying' (includes 'verifying' to recover from interrupted runs)
+const VERIFYABLE_STATUSES = ['running', 'ready', 'verifying'];
 
 export async function verifyCommand(repoRoot: string, taskId: string): Promise<VerifyResult> {
   const tm = new TaskManager(repoRoot);
