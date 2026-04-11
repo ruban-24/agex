@@ -59,6 +59,17 @@ describe('TaskManager', () => {
       const port2 = parseInt(task2.env.AGEX_PORT, 10);
       expect(port2).toBe(port1 + 100);
     });
+
+    it('reuses port gaps when tasks are deleted', async () => {
+      const task1 = await tm.createTask({ prompt: 'task 1' });
+      const task2 = await tm.createTask({ prompt: 'task 2' });
+      const port1 = parseInt(task1.env.AGEX_PORT, 10);
+      const port2 = parseInt(task2.env.AGEX_PORT, 10);
+      await tm.deleteTask(task1.id);
+      const task3 = await tm.createTask({ prompt: 'task 3' });
+      const port3 = parseInt(task3.env.AGEX_PORT, 10);
+      expect(port3).toBe(port1);
+    });
   });
 
   describe('getTask', () => {

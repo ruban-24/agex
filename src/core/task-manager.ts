@@ -1,7 +1,7 @@
 import { readFile, writeFile, readdir, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { generateTaskId } from '../utils/id.js';
-import { calculatePort } from '../utils/port.js';
+import { nextAvailablePort } from '../utils/port.js';
 import {
   tasksPath,
   taskFilePath,
@@ -26,8 +26,8 @@ export class TaskManager {
   async createTask(options: CreateTaskOptions): Promise<TaskRecord> {
     const id = generateTaskId();
     const existingTasks = await this.listTasks();
-    const taskIndex = existingTasks.length;
-    const port = calculatePort(taskIndex, DEFAULT_PORTS.base, DEFAULT_PORTS.step);
+    const existingPorts = existingTasks.map((t) => parseInt(t.env.AGEX_PORT, 10));
+    const port = nextAvailablePort(existingPorts, DEFAULT_PORTS.base, DEFAULT_PORTS.step);
     const worktreeAbsolute = resolve(this.repoRoot, '.agex', 'tasks', id);
 
     const task: TaskRecord = {
