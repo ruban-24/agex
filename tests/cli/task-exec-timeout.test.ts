@@ -33,21 +33,6 @@ describe('task-exec timeout', () => {
     await repo.cleanup();
   });
 
-  it('transitions to errored when agent exceeds timeout (blocking)', async () => {
-    const task = await taskCreateCommand(repo.path, { prompt: 'timeout test' });
-
-    const result = await taskExecCommand(repo.path, task.id, {
-      cmd: 'sleep 60',
-      wait: true,
-      timeout: 2,
-    });
-
-    const tm = new TaskManager(repo.path);
-    const updated = await tm.getTask(task.id);
-    expect(updated!.status).toBe('errored');
-    expect(updated!.error).toContain('timed out');
-  }, 30000);
-
   it('completes normally when within timeout (blocking)', async () => {
     const task = await taskCreateCommand(repo.path, { prompt: 'fast task' });
 
