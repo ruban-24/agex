@@ -16,6 +16,7 @@ import { rejectCommand } from '../cli/commands/reject.js';
 import { cleanCommand } from '../cli/commands/clean.js';
 import { taskStartCommand } from '../cli/commands/task-start.js';
 import { taskStopCommand } from '../cli/commands/task-stop.js';
+import { cancelCommand } from '../cli/commands/cancel.js';
 import { retryCommand } from '../cli/commands/retry.js';
 import { answerCommand } from '../cli/commands/answer.js';
 import { withAbsoluteWorktree, withAbsoluteWorktrees } from '../cli/enrich.js';
@@ -96,6 +97,16 @@ export function getTools(): ToolDefinition[] {
       },
       handler: async (args) => {
         return await taskStopCommand(getRepoRoot(), args.task_id as string);
+      },
+    },
+    {
+      name: 'agex_cancel',
+      description: 'Cancel a running or needs-input task (kills agent process and dev server)',
+      inputSchema: {
+        task_id: z.string().describe('Task ID'),
+      },
+      handler: async (args) => {
+        return await cancelCommand(getRepoRoot(), args.task_id as string);
       },
     },
     {
