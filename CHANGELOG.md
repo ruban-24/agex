@@ -9,6 +9,7 @@
 ### Features
 
 - **Task timeout:** `--timeout <seconds>` flag on `exec`, `run`, and `answer` commands. Also configurable globally via `timeout:` in `.agex/config.yml`. Kills the agent and transitions to `errored` after the specified duration (#38)
+- **SessionStart hooks for agent distribution:** `agex init --agents claude-code` now writes `.claude/settings.json` with a SessionStart hook and `.claude/hooks/session-start.md` instead of appending to CLAUDE.md. Same for codex/copilot agents. Cleaner integration that doesn't modify user docs.
 
 ### Performance
 
