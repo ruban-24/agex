@@ -50,6 +50,12 @@ export class TaskManager {
   }
 
   async getTask(id: string): Promise<TaskRecord | null> {
+    const task = await this.getRawTask(id);
+    if (!task) return null;
+    return await this.recoverIfStale(task);
+  }
+
+  private async getRawTask(id: string): Promise<TaskRecord | null> {
     try {
       const content = await readFile(taskFilePath(this.repoRoot, id), 'utf-8');
       return JSON.parse(content) as TaskRecord;
@@ -68,7 +74,8 @@ export class TaskManager {
       const tasks = await Promise.all(
         jsonFiles.map(async (f) => {
           const content = await readFile(join(tasksPath(this.repoRoot), f), 'utf-8');
-          return JSON.parse(content) as TaskRecord;
+          const task = JSON.parse(content) as TaskRecord;
+          return await this.recoverIfStale(task);
         })
       );
       return tasks;
@@ -78,6 +85,33 @@ export class TaskManager {
       }
       throw err;
     }
+  }
+
+  private isProcessAlive(pid: number): boolean {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async recoverIfStale(task: TaskRecord): Promise<TaskRecord> {
+    const isStaleStatus = task.status === 'running' || task.status === 'needs-input';
+    if (!isStaleStatus || !task.pid || this.isProcessAlive(task.pid)) {
+      return task;
+    }
+
+    task.status = 'errored';
+    task.error = `Agent process (pid ${task.pid}) died unexpectedly`;
+    task.finished_at = new Date().toISOString();
+    if (task.started_at) {
+      task.duration_s = Math.round(
+        (new Date(task.finished_at).getTime() - new Date(task.started_at).getTime()) / 1000
+      );
+    }
+    await this.saveTask(task);
+    return task;
   }
 
   async saveTask(task: TaskRecord): Promise<void> {
@@ -100,7 +134,7 @@ export class TaskManager {
   };
 
   async updateStatus(id: string, newStatus: TaskStatus): Promise<TaskRecord> {
-    const task = await this.getTask(id);
+    const task = await this.getRawTask(id);
     if (!task) {
       throw new Error(`Task not found: ${id}`);
     }
@@ -135,7 +169,7 @@ export class TaskManager {
   }
 
   async updateTask(id: string, updates: Omit<Partial<TaskRecord>, 'id' | 'status'>): Promise<TaskRecord> {
-    const task = await this.getTask(id);
+    const task = await this.getRawTask(id);
     if (!task) {
       throw new Error(`Task not found: ${id}`);
     }
@@ -146,7 +180,7 @@ export class TaskManager {
   }
 
   async deleteTask(id: string): Promise<void> {
-    const task = await this.getTask(id);
+    const task = await this.getRawTask(id);
     if (!task) {
       throw new Error(`Task not found: ${id}`);
     }

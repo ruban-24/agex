@@ -281,4 +281,73 @@ describe('TaskManager', () => {
       await expect(tm.updateStatus(task.id, 'running')).rejects.toThrow(/invalid transition/i);
     });
   });
+
+  describe('stale task recovery', () => {
+    async function transitionToRunning(tm: TaskManager, id: string): Promise<void> {
+      await tm.updateStatus(id, 'provisioning');
+      await tm.updateStatus(id, 'ready');
+      await tm.updateStatus(id, 'running');
+    }
+
+    it('auto-recovers a running task with a dead PID via getTask', async () => {
+      const task = await tm.createTask({ prompt: 'test stale' });
+      await transitionToRunning(tm, task.id);
+      await tm.updateTask(task.id, { pid: 999999 });
+
+      const recovered = await tm.getTask(task.id);
+      expect(recovered!.status).toBe('errored');
+      expect(recovered!.error).toContain('died unexpectedly');
+      expect(recovered!.finished_at).toBeTruthy();
+    });
+
+    it('auto-recovers a needs-input task with a dead PID via getTask', async () => {
+      const task = await tm.createTask({ prompt: 'test stale needs-input' });
+      await transitionToRunning(tm, task.id);
+      await tm.updateStatus(task.id, 'needs-input');
+      await tm.updateTask(task.id, { pid: 999999 });
+
+      // Read with a fresh TaskManager instance
+      const tm2 = new TaskManager(repo.path);
+      const recovered = await tm2.getTask(task.id);
+      expect(recovered!.status).toBe('errored');
+      expect(recovered!.error).toContain('died unexpectedly');
+      expect(recovered!.finished_at).toBeTruthy();
+    });
+
+    it('does NOT recover a running task with a live PID', async () => {
+      const task = await tm.createTask({ prompt: 'test alive' });
+      await transitionToRunning(tm, task.id);
+      await tm.updateTask(task.id, { pid: process.pid });
+
+      const fetched = await tm.getTask(task.id);
+      expect(fetched!.status).toBe('running');
+    });
+
+    it('does NOT recover a running task with no PID set', async () => {
+      const task = await tm.createTask({ prompt: 'test no pid' });
+      await transitionToRunning(tm, task.id);
+      // pid is undefined by default
+
+      const fetched = await tm.getTask(task.id);
+      expect(fetched!.status).toBe('running');
+    });
+
+    it('auto-recovers stale tasks in listTasks', async () => {
+      const alive = await tm.createTask({ prompt: 'alive task' });
+      await transitionToRunning(tm, alive.id);
+      await tm.updateTask(alive.id, { pid: process.pid });
+
+      const dead = await tm.createTask({ prompt: 'dead task' });
+      await transitionToRunning(tm, dead.id);
+      await tm.updateTask(dead.id, { pid: 999999 });
+
+      const tasks = await tm.listTasks();
+      const aliveTask = tasks.find((t) => t.id === alive.id)!;
+      const deadTask = tasks.find((t) => t.id === dead.id)!;
+
+      expect(aliveTask.status).toBe('running');
+      expect(deadTask.status).toBe('errored');
+      expect(deadTask.error).toContain('died unexpectedly');
+    });
+  });
 });

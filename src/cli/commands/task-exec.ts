@@ -97,7 +97,7 @@ export async function taskExecCommand(
   } else {
     // Non-blocking: spawn and return immediately
     const handle = runner.spawn(taskId, options.cmd, wtPath, { ...task.env });
-    await tm.updateTask(taskId, { pid: handle.pid, cmd: options.cmd });
+    const spawned = await tm.updateTask(taskId, { pid: handle.pid, cmd: options.cmd });
 
     // Register background completion handler
     handle.done.then(async (runResult) => {
@@ -133,6 +133,6 @@ export async function taskExecCommand(
       }
     });
 
-    return (await tm.getTask(taskId))!;
+    return spawned;
   }
 }
