@@ -28,7 +28,7 @@ export async function acceptCommand(repoRoot: string, taskId: string): Promise<A
     });
   }
 
-  const mergeableStatuses = ['ready', 'completed', 'failed'];
+  const mergeableStatuses = ['ready', 'completed'];
   if (!mergeableStatuses.includes(task.status)) {
     throw new AgexError(`Cannot merge task in '${task.status}' status (must be: ${mergeableStatuses.join(', ')})`, {
       suggestion: `Run 'agex status ${taskId}' for details`,
