@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.4 — 2026-04-11
+
+### Bug Fixes
+
+- **Stale task recovery:** Tasks stuck in `running` or `needs-input` with a dead agent process are now automatically recovered to `errored` when read by any command (#37)
+
+### Features
+
+- **Task timeout:** `--timeout <seconds>` flag on `exec`, `run`, and `answer` commands. Also configurable globally via `timeout:` in `.agex/config.yml`. Kills the agent and transitions to `errored` after the specified duration (#38)
+
+### Performance
+
+- **Parallel clean:** `agex clean` now removes completed tasks concurrently instead of sequentially (#39)
+
 ## 0.3.2 — 2026-04-11
 
 ### Features
