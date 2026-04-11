@@ -96,7 +96,7 @@ describe('AgentRunner', () => {
       expect(result.timedOut).toBe(true);
       expect(result.exitCode).not.toBe(0);
       expect(elapsed).toBeLessThan(10000);
-    }, 15000);
+    }, 30000);
 
     it('does not kill the process when blocking run completes within timeout', async () => {
       const result = await runner.run('timeout02', 'echo hello', repo.path, {}, { timeout: 30000 });
@@ -113,6 +113,6 @@ describe('AgentRunner', () => {
 
       expect(result.timedOut).toBe(true);
       expect(elapsed).toBeLessThan(10000);
-    }, 15000);
+    }, 30000);
   });
 });

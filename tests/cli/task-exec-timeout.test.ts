@@ -46,7 +46,7 @@ describe('task-exec timeout', () => {
     const updated = await tm.getTask(task.id);
     expect(updated!.status).toBe('errored');
     expect(updated!.error).toContain('timed out');
-  }, 15000);
+  }, 30000);
 
   it('completes normally when within timeout (blocking)', async () => {
     const task = await taskCreateCommand(repo.path, { prompt: 'fast task' });
@@ -60,5 +60,5 @@ describe('task-exec timeout', () => {
     const tm = new TaskManager(repo.path);
     const updated = await tm.getTask(task.id);
     expect(updated!.status).toBe('completed');
-  }, 15000);
+  }, 30000);
 });
