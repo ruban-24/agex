@@ -121,6 +121,13 @@ program
     try {
       isHumanMode = opts.human;
       const root = getRepoRoot();
+      // Validate inputs before bootstrapping workspace (Codex fix #5)
+      if (!opts.prompt && !opts.issue) {
+        await handleError(new AgexError('No prompt provided', {
+          suggestion: 'Provide --prompt or --issue to create a task',
+          exitCode: EXIT_CODES.INVALID_ARGS,
+        }), EXIT_CODES.INVALID_ARGS);
+      }
       const { firstRun, monorepo } = await ensureWorkspace(root);
       const { taskCreateCommand } = await import('./cli/commands/task-create.js');
       const result = await taskCreateCommand(root, {
@@ -139,6 +146,8 @@ program
         if (opts.human) {
           const fmt = await getHumanFmt();
           console.log(humanOutput(fmt.formatFirstRunHuman(monorepo)));
+        } else {
+          console.log(formatOutput({ _firstRun: true, monorepo }, false));
         }
       }
     } catch (err) {
@@ -300,6 +309,8 @@ program
         if (opts.human) {
           const fmt = await getHumanFmt();
           console.log(humanOutput(fmt.formatFirstRunHuman(monorepo)));
+        } else {
+          console.log(formatOutput({ _firstRun: true, monorepo }, false));
         }
       }
     } catch (err) {
