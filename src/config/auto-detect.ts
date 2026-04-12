@@ -245,3 +245,63 @@ export async function detectProjectType(repoRoot: string): Promise<string | null
 
   return null;
 }
+
+export interface MonorepoInfo {
+  type: string;
+  label: string;
+}
+
+export async function detectMonorepo(repoRoot: string): Promise<MonorepoInfo | null> {
+  // pnpm workspace
+  if (await fileExists(join(repoRoot, 'pnpm-workspace.yaml'))) {
+    return { type: 'pnpm', label: 'pnpm workspace' };
+  }
+
+  // npm/yarn workspace (package.json with "workspaces" field)
+  const pkgPath = join(repoRoot, 'package.json');
+  if (await fileExists(pkgPath)) {
+    try {
+      const pkg = JSON.parse(await readFile(pkgPath, 'utf-8'));
+      if (pkg.workspaces) {
+        return { type: 'npm', label: 'npm/yarn workspace' };
+      }
+    } catch {
+      // Invalid JSON, skip
+    }
+  }
+
+  // Lerna
+  if (await fileExists(join(repoRoot, 'lerna.json'))) {
+    return { type: 'lerna', label: 'Lerna monorepo' };
+  }
+
+  // Nx
+  if (await fileExists(join(repoRoot, 'nx.json'))) {
+    return { type: 'nx', label: 'Nx monorepo' };
+  }
+
+  // Turborepo
+  if (await fileExists(join(repoRoot, 'turbo.json'))) {
+    return { type: 'turbo', label: 'Turborepo' };
+  }
+
+  // Cargo workspace
+  const cargoPath = join(repoRoot, 'Cargo.toml');
+  if (await fileExists(cargoPath)) {
+    try {
+      const content = await readFile(cargoPath, 'utf-8');
+      if (/^\[workspace\]/m.test(content)) {
+        return { type: 'cargo', label: 'Cargo workspace' };
+      }
+    } catch {
+      // Skip
+    }
+  }
+
+  // Go workspace
+  if (await fileExists(join(repoRoot, 'go.work'))) {
+    return { type: 'go', label: 'Go workspace' };
+  }
+
+  return null;
+}

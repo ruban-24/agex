@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { detectVerifyCommands, detectProvisioning, detectProjectType, detectRunConfig } from '../../src/config/auto-detect.js';
+import { detectVerifyCommands, detectProvisioning, detectProjectType, detectRunConfig, detectMonorepo } from '../../src/config/auto-detect.js';
 import { createTestRepo, type TestRepo } from '../helpers/test-repo.js';
 
 describe('detectVerifyCommands', () => {
@@ -312,5 +312,83 @@ describe('detectProjectType', () => {
 
     const type = await detectProjectType(repo.path);
     expect(type).toBe('Node.js (package.json)');
+  });
+});
+
+describe('detectMonorepo', () => {
+  let repo: TestRepo;
+
+  beforeEach(async () => {
+    repo = await createTestRepo();
+  });
+
+  afterEach(async () => {
+    await repo.cleanup();
+  });
+
+  it('returns null when no monorepo signals found', async () => {
+    const result = await detectMonorepo(repo.path);
+    expect(result).toBeNull();
+  });
+
+  it('detects pnpm workspace from pnpm-workspace.yaml', async () => {
+    await writeFile(join(repo.path, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    const result = await detectMonorepo(repo.path);
+    expect(result).toEqual({ type: 'pnpm', label: 'pnpm workspace' });
+  });
+
+  it('detects npm/yarn workspace from package.json workspaces field', async () => {
+    await writeFile(
+      join(repo.path, 'package.json'),
+      JSON.stringify({ workspaces: ['packages/*'] })
+    );
+    const result = await detectMonorepo(repo.path);
+    expect(result).toEqual({ type: 'npm', label: 'npm/yarn workspace' });
+  });
+
+  it('detects Lerna from lerna.json', async () => {
+    await writeFile(join(repo.path, 'lerna.json'), JSON.stringify({ version: '0.0.0' }));
+    const result = await detectMonorepo(repo.path);
+    expect(result).toEqual({ type: 'lerna', label: 'Lerna monorepo' });
+  });
+
+  it('detects Nx from nx.json', async () => {
+    await writeFile(join(repo.path, 'nx.json'), JSON.stringify({}));
+    const result = await detectMonorepo(repo.path);
+    expect(result).toEqual({ type: 'nx', label: 'Nx monorepo' });
+  });
+
+  it('detects Turborepo from turbo.json', async () => {
+    await writeFile(join(repo.path, 'turbo.json'), JSON.stringify({ pipeline: {} }));
+    const result = await detectMonorepo(repo.path);
+    expect(result).toEqual({ type: 'turbo', label: 'Turborepo' });
+  });
+
+  it('detects Cargo workspace from Cargo.toml with [workspace]', async () => {
+    await writeFile(join(repo.path, 'Cargo.toml'), '[workspace]\nmembers = ["crates/*"]\n');
+    const result = await detectMonorepo(repo.path);
+    expect(result).toEqual({ type: 'cargo', label: 'Cargo workspace' });
+  });
+
+  it('does not detect Cargo workspace from Cargo.toml without [workspace]', async () => {
+    await writeFile(join(repo.path, 'Cargo.toml'), '[package]\nname = "myapp"\n');
+    const result = await detectMonorepo(repo.path);
+    expect(result).toBeNull();
+  });
+
+  it('detects Go workspace from go.work', async () => {
+    await writeFile(join(repo.path, 'go.work'), 'go 1.21\n\nuse (\n\t./cmd\n\t./pkg\n)\n');
+    const result = await detectMonorepo(repo.path);
+    expect(result).toEqual({ type: 'go', label: 'Go workspace' });
+  });
+
+  it('returns first match by priority (pnpm over npm workspaces)', async () => {
+    await writeFile(join(repo.path, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    await writeFile(
+      join(repo.path, 'package.json'),
+      JSON.stringify({ workspaces: ['packages/*'] })
+    );
+    const result = await detectMonorepo(repo.path);
+    expect(result).toEqual({ type: 'pnpm', label: 'pnpm workspace' });
   });
 });
