@@ -183,7 +183,7 @@ $ agex compare abc123 def456 ghi789 --human
 `agex init` drops a skill file into your repo so your agent discovers agex automatically. Or install just the skill file with [`npx skills`](https://github.com/vercel-labs/skills):
 
 ```bash
-npx skills add ruban-24/agex
+npx skills add ruban-24/agex --skill agex
 ```
 
 | Agent | Skill file location | Auto-discovered |
