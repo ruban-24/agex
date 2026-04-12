@@ -4,6 +4,15 @@ import { getParser } from './parsers/index.js';
 
 export class Verifier {
   async runChecks(cwd: string, commands: VerifyCommand[]): Promise<VerificationResult> {
+    // Explicit handling for empty commands — consistent across all call sites
+    if (commands.length === 0) {
+      return {
+        passed: true,
+        summary: 'No verify commands configured. Verification passed (0 checks).',
+        checks: [],
+      };
+    }
+
     const checks: VerificationCheck[] = [];
 
     for (const entry of commands) {

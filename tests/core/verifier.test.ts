@@ -48,10 +48,11 @@ describe('Verifier', () => {
     expect(result.checks[0].output).toContain('test output');
   });
 
-  it('returns empty checks for empty command list', async () => {
+  it('returns explicit message when commands array is empty', async () => {
     const result = await verifier.runChecks(repo.path, []);
 
     expect(result.passed).toBe(true);
+    expect(result.summary).toBe('No verify commands configured. Verification passed (0 checks).');
     expect(result.checks).toEqual([]);
   });
 
