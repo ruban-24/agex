@@ -27,8 +27,9 @@
 ## Quick Start
 
 ```bash
-# Install
-brew install ruban-24/tap/agex   # or: npm i -g @ruban24/agex
+# Install (pick one)
+brew install ruban-24/tap/agex
+npm install -g @ruban24/agex
 
 # Start using it immediately — no setup required
 cd your-project
