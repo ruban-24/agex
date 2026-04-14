@@ -109,4 +109,5 @@ export interface AgexConfig {
   setup?: string[];
   run?: RunConfig;
   timeout?: number;
+  review?: 'auto' | 'manual';
 }
