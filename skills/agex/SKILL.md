@@ -226,7 +226,7 @@ When you hit a decision that requires human input, signal it instead of guessing
 | `agex verify <id>` | Run verification checks |
 | `agex review <id>` | Show changes vs base branch |
 | `agex compare <id1> <id2> [...]` | Side-by-side task comparison |
-| `agex accept <id>` | Merge task branch into current branch |
+| `agex accept <id> [--reviewed]` | Merge task branch into current branch (`--reviewed` required in manual mode) |
 | `agex reject <id>` | Remove task worktree and branch |
 | `agex clean` | Clean up all finished tasks |
 | `agex retry <id> --feedback <text>` | Retry failed task with feedback |
@@ -287,12 +287,16 @@ review: manual  # or auto
 
 ### When `review: manual` (default)
 
-**Never run `agex accept` without presenting results to the user first.** After verification passes:
+**The CLI enforces this.** Running `agex accept <id>` without `--reviewed` or `--human` will fail with an error. You must get human approval first.
+
+After verification passes:
 
 1. Run `agex summary --human` and show the output to the user
 2. For each task the user might accept, run `agex review <id> --human` and show the output
 3. Ask the user: "These tasks passed verification. Accept them?"
-4. Only run `agex accept <id>` after the user confirms
+4. Only run `agex accept <id> --reviewed` after the user confirms
+
+The `--reviewed` flag is your assertion that the human approved the merge.
 
 Example conversation flow:
 ```
@@ -310,13 +314,21 @@ Agent: All 3 tasks passed verification. Here are the results:
 
 User: Accept both.
 
-Agent: [runs agex accept abc123, agex accept def456]
+Agent: [runs agex accept abc123 --reviewed, agex accept def456 --reviewed]
 ```
 
 ### When `review: auto`
 
-After verification passes, proceed directly to `agex accept` without asking. Log what was merged so the user can see it after the fact.
+After verification passes, proceed directly to `agex accept` without asking — no `--reviewed` flag needed. Log what was merged so the user can see it after the fact.
 
 ### If no config exists
 
-Default to `manual` behavior — always pause and ask before merging.
+Default to `manual` behavior — `agex accept` will require `--reviewed` or `--human`.
+
+### How the gate works
+
+- `agex verify` and `agex summary` include `review_mode` in their JSON output — check this to know which mode you're in
+- In manual mode, `agex accept <id>` without flags → error with instructions
+- `agex accept <id> --reviewed` → merges (agent asserts human approved)
+- `agex accept <id> --human` → merges (human is at the terminal)
+- In auto mode, `agex accept <id>` → merges directly
