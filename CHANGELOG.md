@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.0 — 2026-04-14
+
+### Breaking Changes
+
+- **`agex accept` now requires `--reviewed` or `--human` in manual mode:** Projects without a `review` setting in `.agex/config.yml` default to `manual`, which blocks `agex accept` without a flag. Add `review: auto` to your config to restore the previous behavior, or pass `--reviewed` / `--human` when accepting.
+
+### Features
+
+- **Review mode (#42):** `agex init` now asks whether agents should auto-merge or pause for human review. Set `review: manual` (default) or `review: auto` in `.agex/config.yml`.
+- **Review mode in JSON output:** `agex verify` and `agex summary` now include `review_mode` in their JSON responses so agents know which mode is active.
+
+### Improvements
+
+- **Trimmed README:** Cut redundant sections, collapsed commands and config into expandable blocks — scannable in ~60 seconds.
+- **Skill file update:** Added Human Review Gate section teaching agents the full review workflow pattern.
+
 ## 0.4.0 — 2026-04-12
 
 ### Features
