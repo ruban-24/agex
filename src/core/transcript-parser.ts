@@ -302,9 +302,10 @@ export async function discoverTranscript(
     return null;
   }
 
-  // Claude Code sanitizes paths by replacing / with -
-  // Scan all directories and find one that matches the worktree path
-  const sanitized = worktreePath.replace(/\//g, '-');
+  // Claude Code sanitizes paths by replacing / and . with -
+  // (e.g. /a/.agex/b -> -a--agex-b). Without dot handling, worktrees
+  // under .agex/ are never matched against their project dir.
+  const sanitized = worktreePath.replace(/[/.]/g, '-');
 
   let matchDir: string | undefined;
   for (const dir of projectDirs) {

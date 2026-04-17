@@ -508,4 +508,17 @@ describe('discoverTranscript', () => {
     const result = await discoverTranscript(worktreePath);
     expect(result).toBe(join(projectDir, 'new.jsonl'));
   });
+
+  it('matches worktree paths containing dots (e.g. .agex/tasks/<id>)', async () => {
+    // Claude Code sanitizes both / and . to -, so /a/.agex/b becomes -a--agex-b
+    const worktreePath = '/private/tmp/agex-manual-test/.agex/tasks/75bcb0';
+    const projectsDir = join(tempHome, '.claude', 'projects');
+    const sanitized = '-private-tmp-agex-manual-test--agex-tasks-75bcb0';
+    const projectDir = join(projectsDir, sanitized);
+    await mkdir(projectDir, { recursive: true });
+    await writeFile(join(projectDir, 'session.jsonl'), '{}\n');
+
+    const result = await discoverTranscript(worktreePath);
+    expect(result).toBe(join(projectDir, 'session.jsonl'));
+  });
 });
