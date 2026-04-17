@@ -9,19 +9,107 @@ import {
 } from '../../src/cli/commands/hook.js';
 
 describe('routeHookEvent', () => {
-  it('extracts taskId from cwd containing /.agex/tasks/<id>/', () => {
-    const result = routeHookEvent('/home/user/myrepo/.agex/tasks/abc123/src/main.ts');
-    expect(result).toEqual({ repoRoot: '/home/user/myrepo', taskId: 'abc123' });
+  let repo: string;
+
+  beforeEach(async () => {
+    repo = await mkdtemp(join(tmpdir(), 'agex-route-'));
+    await mkdir(join(repo, '.agex', 'tasks'), { recursive: true });
   });
 
-  it('extracts taskId when cwd is exactly the worktree root', () => {
-    const result = routeHookEvent('/home/user/myrepo/.agex/tasks/abc123');
-    expect(result).toEqual({ repoRoot: '/home/user/myrepo', taskId: 'abc123' });
+  afterEach(async () => {
+    await rm(repo, { recursive: true, force: true });
   });
 
-  it('returns null when cwd is not inside an agex worktree', () => {
-    const result = routeHookEvent('/home/user/myrepo/src');
+  // --- Baseline (replacing the old cwd-only tests) ---
+  it('returns the route when cwd is inside a worktree', () => {
+    const cwd = join(repo, '.agex', 'tasks', 'abc123', 'src');
+    const result = routeHookEvent({ cwd });
+    expect(result).toEqual({ repoRoot: repo, taskId: 'abc123' });
+  });
+
+  it('returns the route when cwd is exactly the worktree root', () => {
+    const cwd = join(repo, '.agex', 'tasks', 'abc123');
+    const result = routeHookEvent({ cwd });
+    expect(result).toEqual({ repoRoot: repo, taskId: 'abc123' });
+  });
+
+  // --- Spec tests 1–6 ---
+
+  // 1. Tier 1 (registry) wins when the session is registered.
+  it('prefers tier 1 when the registry has the session', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(
+      join(repo, '.agex', 'sessions.json'),
+      JSON.stringify({ 'S1': { taskId: 'from-registry', repoRoot: repo } }),
+    );
+    // cwd does NOT match a worktree, so tier 2 would miss;
+    // but tier 1 resolves first and should pin task-id from the registry.
+    const result = routeHookEvent({ cwd: repo, session_id: 'S1' });
+    expect(result).toEqual({ repoRoot: repo, taskId: 'from-registry' });
+  });
+
+  // 2. Tier 2 (cwd) is used when registry misses, AND it writes to the registry.
+  it('uses tier 2 on registry miss and writes session_id -> task into the registry', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const cwd = join(repo, '.agex', 'tasks', 'abc123', 'src');
+    const result = routeHookEvent({ cwd, session_id: 'S-NEW' });
+    expect(result).toEqual({ repoRoot: repo, taskId: 'abc123' });
+    const raw = await readFile(join(repo, '.agex', 'sessions.json'), 'utf-8');
+    expect(JSON.parse(raw)).toEqual({ 'S-NEW': { taskId: 'abc123', repoRoot: repo } });
+  });
+
+  // 3. Tier 3 (tool_input path) is used when cwd is outside any worktree.
+  it('uses tier 3 (tool_input.file_path) when cwd is outside any worktree', () => {
+    const filePath = join(repo, '.agex', 'tasks', 'abc123', 'foo.ts');
+    const result = routeHookEvent({
+      cwd: repo,
+      session_id: 'S-ROOT',
+      tool_input: { file_path: filePath },
+    });
+    expect(result).toEqual({ repoRoot: repo, taskId: 'abc123' });
+  });
+
+  // 4. Tier 3 does NOT populate the registry (would be wrong for cross-worktree root sessions).
+  it('does not write to the registry when only tier 3 matches', async () => {
+    const { access } = await import('node:fs/promises');
+    const filePath = join(repo, '.agex', 'tasks', 'abc123', 'foo.ts');
+    routeHookEvent({
+      cwd: repo,
+      session_id: 'S-ROOT',
+      tool_input: { file_path: filePath },
+    });
+    await expect(access(join(repo, '.agex', 'sessions.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  // 5. All tiers miss → null.
+  it('returns null when all three tiers miss', () => {
+    const result = routeHookEvent({
+      cwd: repo,
+      session_id: 'S-ROOT',
+      tool_input: { url: 'https://example.com' },
+    });
     expect(result).toBeNull();
+  });
+
+  // 6. Tier 3 matches file_path, path, and notebook_path.
+  it('tier 3 matches file_path, path, and notebook_path keys', () => {
+    const filePath = join(repo, '.agex', 'tasks', 'abc123', 'foo.ts');
+    const pathField = join(repo, '.agex', 'tasks', 'abc123', 'bar.ts');
+    const notebookPath = join(repo, '.agex', 'tasks', 'abc123', 'nb.ipynb');
+    const expected = { repoRoot: repo, taskId: 'abc123' };
+
+    expect(routeHookEvent({ cwd: repo, tool_input: { file_path: filePath } })).toEqual(expected);
+    expect(routeHookEvent({ cwd: repo, tool_input: { path: pathField } })).toEqual(expected);
+    expect(routeHookEvent({ cwd: repo, tool_input: { notebook_path: notebookPath } })).toEqual(expected);
+  });
+
+  // Regression: tightened WORKTREE_RE must NOT match sibling metadata files like
+  // `.agex/tasks/abc123.json` or `.agex/tasks/abc123.activity.jsonl`.
+  it('does not misroute a tool_input path that targets a task metadata file', () => {
+    const metaFile = join(repo, '.agex', 'tasks', 'abc123.json');
+    const activityFile = join(repo, '.agex', 'tasks', 'abc123.activity.jsonl');
+    expect(routeHookEvent({ cwd: '/tmp', tool_input: { file_path: metaFile } })).toBeNull();
+    expect(routeHookEvent({ cwd: '/tmp', tool_input: { path: activityFile } })).toBeNull();
   });
 });
 

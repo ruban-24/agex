@@ -4,12 +4,20 @@ import type { ActivityEventType } from '../../types.js';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
+import { loadSessionRegistry } from '../../core/session-registry.js';
 
 // --- Types ---
 
 export interface HookRoute {
   repoRoot: string;
   taskId: string;
+}
+
+export interface HookPayload {
+  cwd?: string;
+  session_id?: string;
+  tool_input?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface HookEventData {
@@ -50,12 +58,48 @@ function findRepoRoot(cwd: string | undefined): string | null {
   return null;
 }
 
-export function routeHookEvent(cwd: string): HookRoute | null {
-  const match = WORKTREE_RE.exec(cwd);
-  if (!match) return null;
-  const repoRoot = cwd.slice(0, match.index!);
-  const taskId = match[1];
-  return { repoRoot, taskId };
+export function routeHookEvent(payload: HookPayload): HookRoute | null {
+  const cwd = payload.cwd ?? '';
+  const sessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined;
+
+  // Tier 1: session_id registry.
+  if (sessionId) {
+    const repoRoot = findRepoRoot(cwd);
+    if (repoRoot) {
+      const entry = loadSessionRegistry(repoRoot).lookup(sessionId);
+      if (entry) return { repoRoot: entry.repoRoot, taskId: entry.taskId };
+    }
+  }
+
+  // Tier 2: cwd regex match (existing behavior). Populates the registry on hit.
+  const cwdMatch = WORKTREE_RE.exec(cwd);
+  if (cwdMatch) {
+    const taskId = cwdMatch[1];
+    const repoRoot = cwd.slice(0, cwdMatch.index);
+    if (sessionId) {
+      try {
+        loadSessionRegistry(repoRoot).register(sessionId, { taskId, repoRoot });
+      } catch {
+        // non-fatal; tier 2 still succeeds
+      }
+    }
+    return { repoRoot, taskId };
+  }
+
+  // Tier 3: tool_input path regex. Does NOT write to the registry.
+  const input = (payload.tool_input ?? {}) as Record<string, unknown>;
+  const candidatePaths = [input.file_path, input.path, input.notebook_path]
+    .filter((p): p is string => typeof p === 'string');
+
+  for (const p of candidatePaths) {
+    const m = WORKTREE_RE.exec(p);
+    if (m) {
+      const repoRoot = p.slice(0, m.index);
+      return { repoRoot, taskId: m[1] };
+    }
+  }
+
+  return null;
 }
 
 // --- Event extraction ---
@@ -146,19 +190,7 @@ export async function processHookPayload(
   const eventData = extractHookData(hookEvent, payload);
   if (!eventData) return;
 
-  // Try routing from cwd first
-  const cwd = payload.cwd as string | undefined;
-  let route = cwd ? routeHookEvent(cwd) : null;
-
-  // Fallback: check tool_input.file_path for PostToolUse events
-  if (!route) {
-    const toolInput = payload.tool_input as Record<string, unknown> | undefined;
-    const filePath = toolInput?.file_path as string | undefined;
-    if (filePath) {
-      route = routeHookEvent(filePath);
-    }
-  }
-
+  const route = routeHookEvent(payload as HookPayload);
   if (!route) return;
 
   const logger = new ActivityLogger(route.repoRoot);
