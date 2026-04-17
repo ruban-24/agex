@@ -45,6 +45,18 @@ Do NOT run tests/lint/build manually — use \`agex verify <id>\` as the final g
 Invoke the \`agex\` skill for full workflow and command reference.
 `;
 
+/** Activity hooks that capture tool calls, turns, subagents, and session lifecycle. */
+const ACTIVITY_HOOKS: Record<string, string> = {
+  PostToolUse: 'agex hook post-tool',
+  PostToolUseFailure: 'agex hook post-tool-failure',
+  Stop: 'agex hook turn-end',
+  UserPromptSubmit: 'agex hook prompt-submit',
+  SubagentStart: 'agex hook subagent-start',
+  SubagentStop: 'agex hook subagent-stop',
+  SessionEnd: 'agex hook session-end',
+  CwdChanged: 'agex hook cwd-changed',
+};
+
 /**
  * Build the hook config JSON for a given agent, merging into existing config if present.
  */
@@ -69,16 +81,38 @@ function buildHookConfig(agent: AgentId, hookFilePath: string, existing: Record<
       });
 
       if (!hasAgexHook) {
+        const brandingCommand = `[ -f ${hookFilePath} ] && jq -Rs --arg ver "$(agex --version 2>/dev/null || echo unknown)" '{ systemMessage: ("agex v" + $ver + " — worktree isolation active"), hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: . } }' ${hookFilePath} || true`;
         sessionStart.push({
           hooks: [{
             type: 'command',
-            command: plainCommand,
+            command: brandingCommand,
             timeout: 5,
           }],
         });
       }
 
-      return { ...config, hooks: { ...hooks, SessionStart: sessionStart } };
+      hooks.SessionStart = sessionStart;
+
+      // Add activity hooks
+      for (const [hookName, command] of Object.entries(ACTIVITY_HOOKS)) {
+        const hookArray = (hooks[hookName] as unknown[]) ?? [];
+
+        const hasAgexActivityHook = hookArray.some((entry: unknown) => {
+          const e = entry as Record<string, unknown>;
+          const innerHooks = e.hooks as Array<Record<string, unknown>> | undefined;
+          return innerHooks?.some(h => typeof h.command === 'string' && h.command.includes('agex hook'));
+        });
+
+        if (!hasAgexActivityHook) {
+          hookArray.push({
+            hooks: [{ type: 'command', command }],
+          });
+        }
+
+        hooks[hookName] = hookArray;
+      }
+
+      return { ...config, hooks };
     }
 
     case 'codex': {
@@ -188,4 +222,41 @@ export async function writeSkillFiles(
   }
 
   return written;
+}
+
+/**
+ * Write activity hooks to .claude/settings.local.json.
+ * Called unconditionally from initCommand — activity hooks don't require --agents.
+ * Idempotent: checks for existing agex hooks before adding.
+ */
+export async function writeActivityHooks(repoRoot: string): Promise<string[]> {
+  const configRel = AGENT_HOOK_CONFIG_PATHS['claude-code'];
+  const configAbs = join(repoRoot, configRel);
+  await mkdir(dirname(configAbs), { recursive: true });
+
+  let existing: Record<string, unknown> | null = null;
+  try {
+    const raw = await readFile(configAbs, 'utf-8');
+    existing = JSON.parse(raw);
+  } catch {
+    // File doesn't exist or isn't valid JSON
+  }
+
+  const hookFileRel = AGENT_HOOK_FILE_PATHS['claude-code'];
+
+  // Reuse buildHookConfig to get all hooks including activity hooks
+  const config = buildHookConfig('claude-code', hookFileRel, existing);
+  await writeFile(configAbs, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+  // Also ensure the hook content file exists
+  const hookFileAbs = join(repoRoot, hookFileRel);
+  await mkdir(dirname(hookFileAbs), { recursive: true });
+  try {
+    await readFile(hookFileAbs, 'utf-8');
+  } catch {
+    // Only write if it doesn't exist — don't overwrite custom modifications
+    await writeFile(hookFileAbs, HOOK_CONTENT, 'utf-8');
+  }
+
+  return [configRel];
 }
