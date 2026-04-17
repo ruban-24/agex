@@ -24,6 +24,10 @@ export function taskLogPath(repoRoot: string, taskId: string): string {
   return join(repoRoot, AGEX_DIR, TASKS_DIR, `${taskId}.log`);
 }
 
+export function taskActivityPath(repoRoot: string, taskId: string): string {
+  return join(repoRoot, AGEX_DIR, TASKS_DIR, `${taskId}.activity.jsonl`);
+}
+
 export function worktreePath(repoRoot: string, taskId: string): string {
   return join(repoRoot, AGEX_DIR, TASKS_DIR, taskId);
 }

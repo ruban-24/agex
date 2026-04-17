@@ -2,6 +2,7 @@ import simpleGit from 'simple-git';
 import { TaskManager } from '../../core/task-manager.js';
 import { Reviewer } from '../../core/reviewer.js';
 import { WorkspaceManager } from '../../core/workspace-manager.js';
+import { ActivityLogger } from '../../core/activity-logger.js';
 import { worktreePath, EXIT_CODES } from '../../constants.js';
 import { AgexError } from '../../errors.js';
 import { loadConfig } from '../../config/loader.js';
@@ -49,6 +50,25 @@ export async function acceptCommand(repoRoot: string, taskId: string, options?: 
       exitCode: EXIT_CODES.INVALID_ARGS,
     });
   }
+
+  // Lazy aggregation of activity data
+  try {
+    const activity = new ActivityLogger(repoRoot);
+    if (await activity.exists(taskId)) {
+      const currentTask = await tm.getTask(taskId);
+      if (currentTask && !currentTask.token_usage) {
+        const summary = await activity.aggregate(taskId);
+        if (summary) {
+          await tm.updateTask(taskId, {
+            ...(summary.token_usage && { token_usage: summary.token_usage }),
+            ...(summary.model && { model: summary.model }),
+            ...(summary.turn_count && { turn_count: summary.turn_count }),
+            ...(summary.files_modified && { files_modified: summary.files_modified }),
+          });
+        }
+      }
+    }
+  } catch { /* best-effort */ }
 
   const wtPath = worktreePath(repoRoot, taskId);
 

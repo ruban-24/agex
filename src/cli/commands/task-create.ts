@@ -1,6 +1,7 @@
 import { TaskManager } from '../../core/task-manager.js';
 import { WorkspaceManager } from '../../core/workspace-manager.js';
 import { loadConfig } from '../../config/loader.js';
+import { ActivityLogger } from '../../core/activity-logger.js';
 import { AgexError } from '../../errors.js';
 import { EXIT_CODES } from '../../constants.js';
 import type { TaskRecord, AgexConfig } from '../../types.js';
@@ -51,6 +52,9 @@ export async function taskCreateCommand(
   // Create task record
   const task = await tm.createTask({ prompt, cmd: options.cmd });
 
+  const activity = new ActivityLogger(repoRoot);
+  try { await activity.append(task.id, 'task.created', { prompt, branch: task.branch, worktree: task.worktree }); } catch { /* best-effort */ }
+
   if (issueMetadata) {
     await tm.updateTask(task.id, { issue: issueMetadata });
   }
@@ -66,6 +70,8 @@ export async function taskCreateCommand(
       copy: config.copy,
       symlink: config.symlink,
     });
+
+    try { await activity.append(task.id, 'task.provisioned', { copies: config.copy, symlinks: config.symlink, setup_commands: config.setup }); } catch { /* best-effort */ }
 
     // Run setup hooks
     if (config.setup && config.setup.length > 0) {

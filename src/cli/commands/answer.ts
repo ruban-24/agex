@@ -2,9 +2,10 @@ import { resolve } from 'node:path';
 import { TaskManager } from '../../core/task-manager.js';
 import { AgentRunner } from '../../core/agent-runner.js';
 import { Verifier } from '../../core/verifier.js';
+import { ActivityLogger } from '../../core/activity-logger.js';
 import { loadConfig } from '../../config/loader.js';
 import { detectVerifyCommands } from '../../config/auto-detect.js';
-import { checkNeedsInput } from './task-exec.js';
+import { checkNeedsInput, finalizeTranscript } from './task-exec.js';
 import { Reviewer } from '../../core/reviewer.js';
 import { AgexError } from '../../errors.js';
 import type { TaskRecord, QAPair, AgexConfig } from '../../types.js';
@@ -76,6 +77,15 @@ export async function answerCommand(
     needsInput: undefined,
   });
 
+  const activity = new ActivityLogger(repoRoot);
+  try {
+    await activity.append(taskId, 'task.answer', {
+      question: task.needsInput!.question,
+      answer: options.text,
+      round: newQA.round,
+    });
+  } catch { /* best-effort */ }
+
   // Transition back to running state
   await tm.updateStatus(taskId, 'running');
 
@@ -97,6 +107,7 @@ export async function answerCommand(
       AGEX_PROMPT: enhancedPrompt,
     }, { timeout: timeoutMs });
     await tm.updateTask(taskId, { exit_code: runResult.exitCode, cmd });
+    await finalizeTranscript(taskId, wtPath, activity, tm);
 
     // Check for timeout
     if (runResult.timedOut) {
@@ -107,6 +118,7 @@ export async function answerCommand(
     // Check needs-input again (agent might ask another question)
     const needsInput = await checkNeedsInput(wtPath);
     if (needsInput) {
+      try { await activity.append(taskId, 'task.needs_input', { question: needsInput.question, options: needsInput.options, context: needsInput.context }); } catch { /* best-effort */ }
       await tm.updateTask(taskId, { needsInput, cmd });
       return await tm.updateStatus(taskId, 'needs-input');
     }
@@ -122,7 +134,9 @@ export async function answerCommand(
     await tm.updateTask(taskId, { diff_stats });
 
     const finalStatus = verification.passed ? 'completed' : 'failed';
-    return await tm.updateStatus(taskId, finalStatus);
+    const finalTask = await tm.updateStatus(taskId, finalStatus);
+    try { await activity.append(taskId, 'task.finished', { exit_code: runResult.exitCode, duration_s: finalTask.duration_s, diff_stats }); } catch { /* best-effort */ }
+    return finalTask;
   } else {
     const handle = runner.spawn(taskId, cmd, wtPath, {
       ...task.env,
@@ -133,6 +147,7 @@ export async function answerCommand(
     handle.done.then(async (runResult) => {
       try {
         await tm.updateTask(taskId, { exit_code: runResult.exitCode });
+        await finalizeTranscript(taskId, wtPath, activity, tm);
 
         // Check for timeout
         if (runResult.timedOut) {
@@ -143,6 +158,7 @@ export async function answerCommand(
 
         const needsInput = await checkNeedsInput(wtPath);
         if (needsInput) {
+          try { await activity.append(taskId, 'task.needs_input', { question: needsInput.question, options: needsInput.options, context: needsInput.context }); } catch { /* best-effort */ }
           await tm.updateTask(taskId, { needsInput, cmd });
           await tm.updateStatus(taskId, 'needs-input');
           return;
@@ -158,7 +174,8 @@ export async function answerCommand(
         await tm.updateTask(taskId, { diff_stats });
 
         const finalStatus = verification.passed ? 'completed' : 'failed';
-        await tm.updateStatus(taskId, finalStatus);
+        const finalTask = await tm.updateStatus(taskId, finalStatus);
+        try { await activity.append(taskId, 'task.finished', { exit_code: runResult.exitCode, duration_s: finalTask.duration_s, diff_stats }); } catch { /* best-effort */ }
       } catch (err) {
         try {
           await tm.updateTask(taskId, { error: err instanceof Error ? err.message : String(err) });

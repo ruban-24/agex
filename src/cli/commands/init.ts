@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { dump } from 'js-yaml';
 import { AGEX_DIR, TASKS_DIR, CONFIG_FILE } from '../../constants.js';
 import type { AgexConfig, RunConfig } from '../../types.js';
-import { type AgentId, writeSkillFiles } from '../skill-writer.js';
+import { type AgentId, writeSkillFiles, writeActivityHooks } from '../skill-writer.js';
 
 const SECTION_COMMENTS: Record<string, string> = {
   review: '# Review mode: auto (agent merges on verify pass) or manual (agent asks before merging)',
@@ -116,6 +116,10 @@ export async function initCommand(
     const skillFiles = await writeSkillFiles(repoRoot, agents);
     files.push(...skillFiles);
   }
+
+  // Always install activity hooks for Claude Code (independent of --agents selection)
+  const hookFiles = await writeActivityHooks(repoRoot);
+  files.push(...hookFiles);
 
   return {
     created: true,

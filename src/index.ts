@@ -593,4 +593,51 @@ program
     }
   });
 
+program
+  .command('activity [id]')
+  .description('Show the activity log for a task (infers ID from cwd if inside a worktree)')
+  .option('-H, --human', 'Human-friendly output', false)
+  .action(async (id, opts) => {
+    try {
+      isHumanMode = opts.human;
+      const taskId = resolveTaskId(id);
+      const root = getRepoRoot();
+      const { activityCommand } = await import('./cli/commands/activity.js');
+      const result = await activityCommand(root, taskId);
+
+      if (result.empty) {
+        if (opts.human) {
+          console.log(`No activity recorded for task ${taskId}`);
+        } else {
+          console.log(JSON.stringify({ id: taskId, events: [], empty: true }));
+        }
+        process.exit(EXIT_CODES.SUCCESS);
+      }
+
+      if (opts.human) {
+        const { formatActivityHuman } = await import('./cli/format/activity.js');
+        const { humanOutput } = await import('./cli/output.js');
+        console.log(humanOutput(formatActivityHuman(result)));
+      } else {
+        // JSONL output — one JSON object per line
+        for (const event of result.events) {
+          console.log(JSON.stringify(event));
+        }
+      }
+    } catch (err) {
+      await handleError(err, EXIT_CODES.WORKSPACE_ERROR);
+    }
+  });
+
+program
+  .command('hook <event>', { hidden: true })
+  .action(async (event) => {
+    try {
+      const { hookCommand } = await import('./cli/commands/hook.js');
+      await hookCommand(event);
+    } catch {
+      // Hooks must never fail visibly
+    }
+  });
+
 program.parse();

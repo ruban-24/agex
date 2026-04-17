@@ -2,10 +2,12 @@ import { readFile, writeFile, readdir, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { generateTaskId } from '../utils/id.js';
 import { nextAvailablePort } from '../utils/port.js';
+import { ActivityLogger } from './activity-logger.js';
 import {
   tasksPath,
   taskFilePath,
   taskLogPath,
+  taskActivityPath,
   BRANCH_PREFIX,
   DEFAULT_PORTS,
 } from '../constants.js';
@@ -21,6 +23,11 @@ export class TaskManager {
   // Write-through cache: populated after saveTask(), used by updateTask/updateStatus
   // to skip the re-read of a file we just wrote. getTask() always reads from disk.
   private writeCache = new Map<string, TaskRecord>();
+  private _activity: ActivityLogger | null = null;
+  private get activity(): ActivityLogger {
+    if (!this._activity) this._activity = new ActivityLogger(this.repoRoot);
+    return this._activity;
+  }
 
   constructor(repoRoot: string) {
     this.repoRoot = repoRoot;
@@ -152,6 +159,7 @@ export class TaskManager {
       throw new Error(`Task not found: ${id}`);
     }
 
+    const oldStatus = task.status;
     const allowed = TaskManager.VALID_TRANSITIONS[task.status];
     if (!allowed.includes(newStatus)) {
       throw new Error(
@@ -178,6 +186,7 @@ export class TaskManager {
     }
 
     await this.saveTask(task);
+    try { await this.activity.append(id, 'task.status_change', { from: oldStatus, to: newStatus }); } catch { /* best-effort */ }
     return task;
   }
 
@@ -200,6 +209,7 @@ export class TaskManager {
     this.writeCache.delete(id);
     try { await unlink(taskFilePath(this.repoRoot, id)); } catch { /* already gone */ }
     try { await unlink(taskLogPath(this.repoRoot, id)); } catch { /* already gone */ }
+    try { await unlink(taskActivityPath(this.repoRoot, id)); } catch { /* already gone */ }
   }
 
   /**
