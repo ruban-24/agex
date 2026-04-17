@@ -7,6 +7,7 @@ import { ActivityLogger } from '../../core/activity-logger.js';
 import { loadConfig } from '../../config/loader.js';
 import { detectVerifyCommands } from '../../config/auto-detect.js';
 import { AgexError } from '../../errors.js';
+import { discoverTranscript, parseTranscript } from '../../core/transcript-parser.js';
 import type { TaskRecord, NeedsInputPayload, AgexConfig } from '../../types.js';
 
 export interface TaskExecOptions {
@@ -79,6 +80,46 @@ export async function taskExecCommand(
     const result = await runner.run(taskId, options.cmd, wtPath, { ...task.env }, { timeout: timeoutMs });
     await tm.updateTask(taskId, { exit_code: result.exitCode, cmd: options.cmd });
 
+    // Parse transcript for token usage and (optionally) tool calls.
+    // Deduplication: hooks capture tool.call, turn.end, subagent.*, session.end in real-time.
+    // Transcript provides token usage (hooks can't) and is the fallback when hooks weren't active.
+    // Rule: one source or the other for behavioral events, transcript always for tokens.
+    try {
+      const transcriptPath = await discoverTranscript(wtPath);
+      if (transcriptPath) {
+        await tm.updateTask(taskId, { transcript_path: transcriptPath });
+        const hooksWereActive = await activity.hasToolCalls(taskId);
+        const transcript = await parseTranscript(transcriptPath, taskId);
+
+        if (!hooksWereActive) {
+          // Hooks weren't active — write ALL transcript events (tool calls, turns, subagents, session)
+          for (const event of transcript.events) {
+            await activity.append(taskId, event.event, event.data);
+          }
+        }
+        // When hooks WERE active: skip all transcript behavioral events (tool.call, turn.end,
+        // subagent.*, session.start are already captured by hooks). Only write token summary.
+
+        // Always write session.end with token usage — hooks don't provide token data
+        await activity.append(taskId, 'session.end', {
+          tokens: transcript.token_usage,
+          api_calls: transcript.token_usage.api_call_count,
+          turns: transcript.turn_count,
+          files_modified: transcript.files_modified,
+        });
+
+        // Update TaskRecord with summary data
+        await tm.updateTask(taskId, {
+          token_usage: transcript.token_usage,
+          model: transcript.model,
+          turn_count: transcript.turn_count,
+          files_modified: transcript.files_modified,
+        });
+      }
+    } catch {
+      // Transcript parsing is best-effort
+    }
+
     // Check for timeout
     if (result.timedOut) {
       await tm.updateTask(taskId, { error: `Agent timed out after ${options.timeout}s` });
@@ -119,6 +160,46 @@ export async function taskExecCommand(
     handle.done.then(async (runResult) => {
       try {
         await tm.updateTask(taskId, { exit_code: runResult.exitCode });
+
+        // Parse transcript for token usage and (optionally) tool calls.
+        // Deduplication: hooks capture tool.call, turn.end, subagent.*, session.end in real-time.
+        // Transcript provides token usage (hooks can't) and is the fallback when hooks weren't active.
+        // Rule: one source or the other for behavioral events, transcript always for tokens.
+        try {
+          const transcriptPath = await discoverTranscript(wtPath);
+          if (transcriptPath) {
+            await tm.updateTask(taskId, { transcript_path: transcriptPath });
+            const hooksWereActive = await activity.hasToolCalls(taskId);
+            const transcript = await parseTranscript(transcriptPath, taskId);
+
+            if (!hooksWereActive) {
+              // Hooks weren't active — write ALL transcript events (tool calls, turns, subagents, session)
+              for (const event of transcript.events) {
+                await activity.append(taskId, event.event, event.data);
+              }
+            }
+            // When hooks WERE active: skip all transcript behavioral events (tool.call, turn.end,
+            // subagent.*, session.start are already captured by hooks). Only write token summary.
+
+            // Always write session.end with token usage — hooks don't provide token data
+            await activity.append(taskId, 'session.end', {
+              tokens: transcript.token_usage,
+              api_calls: transcript.token_usage.api_call_count,
+              turns: transcript.turn_count,
+              files_modified: transcript.files_modified,
+            });
+
+            // Update TaskRecord with summary data
+            await tm.updateTask(taskId, {
+              token_usage: transcript.token_usage,
+              model: transcript.model,
+              turn_count: transcript.turn_count,
+              files_modified: transcript.files_modified,
+            });
+          }
+        } catch {
+          // Transcript parsing is best-effort
+        }
 
         // Check for timeout
         if (runResult.timedOut) {
