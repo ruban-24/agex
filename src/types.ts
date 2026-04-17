@@ -95,6 +95,12 @@ export interface TaskRecord {
     url: string;
     title: string;
   };
+  // Activity summary (populated lazily from activity log)
+  token_usage?: TokenUsage;
+  model?: string;
+  turn_count?: number;
+  files_modified?: string[];
+  transcript_path?: string;
 }
 
 export interface RunConfig {
@@ -110,4 +116,39 @@ export interface AgexConfig {
   run?: RunConfig;
   timeout?: number;
   review?: 'auto' | 'manual';
+}
+
+// --- Activity Events ---
+
+export type ActivityEventType =
+  | 'task.created'
+  | 'task.provisioned'
+  | 'task.exec.started'
+  | 'task.status_change'
+  | 'task.needs_input'
+  | 'task.answer'
+  | 'task.verify'
+  | 'task.finished'
+  | 'tool.call'
+  | 'tool.failed'
+  | 'session.start'
+  | 'session.end'
+  | 'turn.end'
+  | 'cwd.changed'
+  | 'subagent.started'
+  | 'subagent.completed';
+
+export interface ActivityEvent {
+  ts: string;
+  event: ActivityEventType;
+  task_id: string;
+  data?: Record<string, unknown>;
+}
+
+export interface TokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_tokens: number;
+  cache_read_tokens: number;
+  api_call_count: number;
 }
