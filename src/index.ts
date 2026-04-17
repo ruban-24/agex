@@ -593,4 +593,15 @@ program
     }
   });
 
+program
+  .command('hook <event>', { hidden: true })
+  .action(async (event) => {
+    try {
+      const { hookCommand } = await import('./cli/commands/hook.js');
+      await hookCommand(event);
+    } catch {
+      // Hooks must never fail visibly
+    }
+  });
+
 program.parse();
