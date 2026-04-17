@@ -134,7 +134,9 @@ export async function answerCommand(
     await tm.updateTask(taskId, { diff_stats });
 
     const finalStatus = verification.passed ? 'completed' : 'failed';
-    return await tm.updateStatus(taskId, finalStatus);
+    const finalTask = await tm.updateStatus(taskId, finalStatus);
+    try { await activity.append(taskId, 'task.finished', { exit_code: runResult.exitCode, duration_s: finalTask.duration_s, diff_stats }); } catch { /* best-effort */ }
+    return finalTask;
   } else {
     const handle = runner.spawn(taskId, cmd, wtPath, {
       ...task.env,
@@ -172,7 +174,8 @@ export async function answerCommand(
         await tm.updateTask(taskId, { diff_stats });
 
         const finalStatus = verification.passed ? 'completed' : 'failed';
-        await tm.updateStatus(taskId, finalStatus);
+        const finalTask = await tm.updateStatus(taskId, finalStatus);
+        try { await activity.append(taskId, 'task.finished', { exit_code: runResult.exitCode, duration_s: finalTask.duration_s, diff_stats }); } catch { /* best-effort */ }
       } catch (err) {
         try {
           await tm.updateTask(taskId, { error: err instanceof Error ? err.message : String(err) });
