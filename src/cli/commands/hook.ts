@@ -1,6 +1,9 @@
 import { ActivityLogger } from '../../core/activity-logger.js';
 import { extractToolInput } from '../../core/transcript-parser.js';
 import type { ActivityEventType } from '../../types.js';
+import { existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
 
 // --- Types ---
 
@@ -16,7 +19,36 @@ export interface HookEventData {
 
 // --- Routing ---
 
-const WORKTREE_RE = /\/\.agex\/tasks\/([^/]+)/;
+const WORKTREE_RE = /\/\.agex\/tasks\/([^/.]+)(?=\/|$)/;
+
+function findRepoRoot(cwd: string | undefined): string | null {
+  if (!cwd) return null;
+
+  // 1. cwd sits inside a worktree — repoRoot is the prefix before /.agex/tasks/
+  const m = WORKTREE_RE.exec(cwd);
+  if (m) return cwd.slice(0, m.index);
+
+  // 2. Walk upward from cwd looking for a directory that contains .agex/
+  let dir = cwd;
+  while (dir && dir !== dirname(dir)) {
+    if (existsSync(join(dir, '.agex'))) return dir;
+    dir = dirname(dir);
+  }
+
+  // 3. Last resort — ask git. Useful when cwd is a symlink or a subdir
+  //    of a non-agex-initialized repo that still has .agex at toplevel.
+  try {
+    const top = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    if (top && existsSync(join(top, '.agex'))) return top;
+  } catch {
+    // git not available / not a repo — fall through
+  }
+  return null;
+}
 
 export function routeHookEvent(cwd: string): HookRoute | null {
   const match = WORKTREE_RE.exec(cwd);
