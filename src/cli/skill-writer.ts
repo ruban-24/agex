@@ -50,7 +50,6 @@ const ACTIVITY_HOOKS: Record<string, string> = {
   PostToolUse: 'agex hook post-tool',
   PostToolUseFailure: 'agex hook post-tool-failure',
   Stop: 'agex hook turn-end',
-  UserPromptSubmit: 'agex hook prompt-submit',
   SubagentStart: 'agex hook subagent-start',
   SubagentStop: 'agex hook subagent-stop',
   SessionEnd: 'agex hook session-end',

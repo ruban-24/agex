@@ -241,7 +241,8 @@ describe('parseTranscript', () => {
     const toolEvent = result.events.find(e => e.event === 'tool.call');
     expect(toolEvent).toBeDefined();
     expect(toolEvent!.data?.tool).toBe('Read');
-    expect(toolEvent!.data?.input).toEqual({ file_path: '/src/main.ts' });
+    expect(toolEvent!.data?.tool_use_id).toBe('tu_001');
+    expect(toolEvent!.data?.file_path).toBe('/src/main.ts');
   });
 
   it('tracks files modified by Edit and Write tools (deduplicates)', async () => {

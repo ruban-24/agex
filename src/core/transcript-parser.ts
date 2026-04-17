@@ -166,7 +166,7 @@ export async function parseTranscript(
             ts,
             event: 'tool.call',
             task_id: taskId,
-            data: { tool: block.name, input: extracted },
+            data: { tool: block.name, tool_use_id: block.id, ...extracted },
           });
 
           // Track files modified
