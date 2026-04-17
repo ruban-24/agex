@@ -3,6 +3,16 @@ import { dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { sessionRegistryPath } from '../constants.js';
 
+let corruptWarned = false;
+let writeWarned = false;
+
+// Test-only: reset per-process warning flags so repeat assertions aren't affected
+// by a previous test. Not exported on the public API of the registry itself.
+export function __resetWarningsForTests(): void {
+  corruptWarned = false;
+  writeWarned = false;
+}
+
 export interface SessionEntry {
   taskId: string;
   repoRoot: string;
@@ -26,7 +36,12 @@ function readRegistry(path: string): RegistryShape {
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === 'ENOENT') return {};
-    // Corruption: treat as empty. Caller may have warned once.
+    if (!corruptWarned) {
+      corruptWarned = true;
+      process.stderr.write(
+        `agex: session registry at ${path} is unreadable, treating as empty (${(err as Error).message})\n`,
+      );
+    }
     return {};
   }
 }
@@ -49,13 +64,18 @@ export function loadSessionRegistry(repoRoot: string): SessionRegistry {
       const existing = readRegistry(path);
       const prior = existing[sessionId];
       if (prior && prior.taskId === entry.taskId && prior.repoRoot === entry.repoRoot) {
-        return; // idempotent — entry already exactly as requested
+        return;
       }
       existing[sessionId] = entry;
       try {
         writeRegistry(path, existing);
-      } catch {
-        // Write failures are non-fatal; callers must tolerate (hook path).
+      } catch (err) {
+        if (!writeWarned) {
+          writeWarned = true;
+          process.stderr.write(
+            `agex: could not update session registry at ${path} (${(err as Error).message})\n`,
+          );
+        }
       }
     },
   };

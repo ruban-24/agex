@@ -63,4 +63,44 @@ describe('SessionRegistry', () => {
     expect(reg.lookup('s-1')).toEqual({ taskId: 't-1', repoRoot: repo });
     expect(reg.lookup('s-2')).toEqual({ taskId: 't-2', repoRoot: repo });
   });
+
+  it('lookup treats corrupt JSON as empty', async () => {
+    await writeFile(join(repo, '.agex', 'sessions.json'), 'not json {{{');
+    const reg = loadSessionRegistry(repo);
+    expect(reg.lookup('s-1')).toBeNull();
+  });
+
+  it('register recovers from a corrupt file by overwriting it', async () => {
+    await writeFile(join(repo, '.agex', 'sessions.json'), 'not json {{{');
+    const reg = loadSessionRegistry(repo);
+    reg.register('s-1', { taskId: 't-1', repoRoot: repo });
+    expect(reg.lookup('s-1')).toEqual({ taskId: 't-1', repoRoot: repo });
+  });
+
+  it('emits a stderr warning once when the registry file is corrupt', async () => {
+    const { __resetWarningsForTests } = await import('../../src/core/session-registry.js');
+    __resetWarningsForTests();
+
+    await writeFile(join(repo, '.agex', 'sessions.json'), 'not json {{{');
+
+    const errs: string[] = [];
+    const orig = process.stderr.write.bind(process.stderr);
+    (process.stderr.write as unknown as (chunk: string | Uint8Array) => boolean) =
+      ((chunk: string | Uint8Array) => {
+        errs.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf-8'));
+        return true;
+      }) as typeof process.stderr.write;
+
+    try {
+      const reg = loadSessionRegistry(repo);
+      reg.lookup('s-1');
+      reg.lookup('s-2');
+      reg.lookup('s-3');
+    } finally {
+      process.stderr.write = orig;
+    }
+
+    const warnings = errs.filter(e => e.includes('agex') && e.toLowerCase().includes('session'));
+    expect(warnings.length).toBe(1);
+  });
 });
