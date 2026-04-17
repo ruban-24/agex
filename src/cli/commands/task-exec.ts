@@ -16,6 +16,59 @@ export interface TaskExecOptions {
   timeout?: number;
 }
 
+/**
+ * Parse Claude Code transcript for token usage and (when hooks weren't active) behavioral events,
+ * append derived events to the activity log, and update the TaskRecord summary fields.
+ *
+ * Deduplication rule: hooks own behavioral events (tool.call, turn.end, subagent.*, session.end)
+ * when active. Transcript is the fallback for those AND always the source of token totals
+ * (hooks don't carry token data). Best-effort — errors are swallowed.
+ */
+async function finalizeTranscript(
+  taskId: string,
+  wtPath: string,
+  activity: ActivityLogger,
+  tm: TaskManager,
+): Promise<void> {
+  try {
+    const transcriptPath = await discoverTranscript(wtPath);
+    if (!transcriptPath) return;
+
+    await tm.updateTask(taskId, { transcript_path: transcriptPath });
+    const hooksWereActive = await activity.hasToolCalls(taskId);
+    const transcript = await parseTranscript(transcriptPath, taskId);
+
+    if (!hooksWereActive) {
+      for (const event of transcript.events) {
+        await activity.append(taskId, event.event, event.data);
+      }
+    }
+
+    // Synthetic session.start with model — hooks never emit this, but the
+    // --human header's model line depends on it.
+    if (transcript.model) {
+      await activity.append(taskId, 'session.start', { model: transcript.model });
+    }
+
+    // Always write session.end with token usage — hooks don't carry tokens.
+    await activity.append(taskId, 'session.end', {
+      tokens: transcript.token_usage,
+      api_calls: transcript.token_usage.api_call_count,
+      turns: transcript.turn_count,
+      files_modified: transcript.files_modified,
+    });
+
+    await tm.updateTask(taskId, {
+      token_usage: transcript.token_usage,
+      model: transcript.model,
+      turn_count: transcript.turn_count,
+      files_modified: transcript.files_modified,
+    });
+  } catch {
+    // Transcript parsing is best-effort
+  }
+}
+
 export async function checkNeedsInput(wtPath: string): Promise<NeedsInputPayload | null> {
   const filePath = join(wtPath, '.agex', 'needs-input.json');
   try {
@@ -80,51 +133,7 @@ export async function taskExecCommand(
     const result = await runner.run(taskId, options.cmd, wtPath, { ...task.env }, { timeout: timeoutMs });
     await tm.updateTask(taskId, { exit_code: result.exitCode, cmd: options.cmd });
 
-    // Parse transcript for token usage and (optionally) tool calls.
-    // Deduplication: hooks capture tool.call, turn.end, subagent.*, session.end in real-time.
-    // Transcript provides token usage (hooks can't) and is the fallback when hooks weren't active.
-    // Rule: one source or the other for behavioral events, transcript always for tokens.
-    try {
-      const transcriptPath = await discoverTranscript(wtPath);
-      if (transcriptPath) {
-        await tm.updateTask(taskId, { transcript_path: transcriptPath });
-        const hooksWereActive = await activity.hasToolCalls(taskId);
-        const transcript = await parseTranscript(transcriptPath, taskId);
-
-        if (!hooksWereActive) {
-          // Hooks weren't active — write ALL transcript events (tool calls, turns, subagents, session)
-          for (const event of transcript.events) {
-            await activity.append(taskId, event.event, event.data);
-          }
-        }
-        // When hooks WERE active: skip all transcript behavioral events (tool.call, turn.end,
-        // subagent.*, session.start are already captured by hooks). Only write token summary.
-
-        // Emit a synthetic session.start with the model regardless of hook activity —
-        // hooks never emit session.start, so the --human header's model line depends on this.
-        if (transcript.model) {
-          await activity.append(taskId, 'session.start', { model: transcript.model });
-        }
-
-        // Always write session.end with token usage — hooks don't provide token data
-        await activity.append(taskId, 'session.end', {
-          tokens: transcript.token_usage,
-          api_calls: transcript.token_usage.api_call_count,
-          turns: transcript.turn_count,
-          files_modified: transcript.files_modified,
-        });
-
-        // Update TaskRecord with summary data
-        await tm.updateTask(taskId, {
-          token_usage: transcript.token_usage,
-          model: transcript.model,
-          turn_count: transcript.turn_count,
-          files_modified: transcript.files_modified,
-        });
-      }
-    } catch {
-      // Transcript parsing is best-effort
-    }
+    await finalizeTranscript(taskId, wtPath, activity, tm);
 
     // Check for timeout
     if (result.timedOut) {
@@ -169,51 +178,7 @@ export async function taskExecCommand(
       try {
         await tm.updateTask(taskId, { exit_code: runResult.exitCode });
 
-        // Parse transcript for token usage and (optionally) tool calls.
-        // Deduplication: hooks capture tool.call, turn.end, subagent.*, session.end in real-time.
-        // Transcript provides token usage (hooks can't) and is the fallback when hooks weren't active.
-        // Rule: one source or the other for behavioral events, transcript always for tokens.
-        try {
-          const transcriptPath = await discoverTranscript(wtPath);
-          if (transcriptPath) {
-            await tm.updateTask(taskId, { transcript_path: transcriptPath });
-            const hooksWereActive = await activity.hasToolCalls(taskId);
-            const transcript = await parseTranscript(transcriptPath, taskId);
-
-            if (!hooksWereActive) {
-              // Hooks weren't active — write ALL transcript events (tool calls, turns, subagents, session)
-              for (const event of transcript.events) {
-                await activity.append(taskId, event.event, event.data);
-              }
-            }
-            // When hooks WERE active: skip all transcript behavioral events (tool.call, turn.end,
-            // subagent.*, session.start are already captured by hooks). Only write token summary.
-
-            // Emit a synthetic session.start with the model regardless of hook activity —
-            // hooks never emit session.start, so the --human header's model line depends on this.
-            if (transcript.model) {
-              await activity.append(taskId, 'session.start', { model: transcript.model });
-            }
-
-            // Always write session.end with token usage — hooks don't provide token data
-            await activity.append(taskId, 'session.end', {
-              tokens: transcript.token_usage,
-              api_calls: transcript.token_usage.api_call_count,
-              turns: transcript.turn_count,
-              files_modified: transcript.files_modified,
-            });
-
-            // Update TaskRecord with summary data
-            await tm.updateTask(taskId, {
-              token_usage: transcript.token_usage,
-              model: transcript.model,
-              turn_count: transcript.turn_count,
-              files_modified: transcript.files_modified,
-            });
-          }
-        } catch {
-          // Transcript parsing is best-effort
-        }
+        await finalizeTranscript(taskId, wtPath, activity, tm);
 
         // Check for timeout
         if (runResult.timedOut) {
