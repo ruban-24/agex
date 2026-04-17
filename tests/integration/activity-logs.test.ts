@@ -224,6 +224,36 @@ describe('Task Activity Logs (integration)', () => {
       expect(changes).toContain('running->verifying');
       expect(changes).toContain('verifying->completed');
     });
+
+    it('30. answer completion emits task.finished after task.answer', async () => {
+      await initAgex(repo);
+      const id = await createTask(repo, 'answer finish test');
+
+      // First exec: agent writes needs-input.json and exits, task parks at needs-input.
+      // needs-input path does NOT emit task.finished, so the only task.finished in the
+      // log must come from the answer-path completion.
+      await execTask(
+        repo,
+        id,
+        "mkdir -p .agex && echo '{\"question\":\"pick?\"}' > .agex/needs-input.json",
+      );
+      const paused = await readTaskJson(repo, id);
+      expect(paused.status).toBe('needs-input');
+
+      const ans = agex(repo, ['answer', id, '--text', 'option-a', '--cmd', 'echo answered', '--wait']);
+      expect(ans.status).toBe(0);
+
+      const events = await readActivity(repo, id);
+      const answerIdx = events.findIndex(e => e.event === 'task.answer');
+      expect(answerIdx).toBeGreaterThan(-1);
+      // task.finished must appear AFTER task.answer — the regression being guarded
+      // is that the answer path used to skip this emission entirely.
+      const finishedAfterAnswer = events.slice(answerIdx + 1).find(e => e.event === 'task.finished');
+      expect(finishedAfterAnswer).toBeDefined();
+      expect(finishedAfterAnswer!.data!.exit_code).toBe(0);
+      expect(typeof finishedAfterAnswer!.data!.duration_s).toBe('number');
+      expect(finishedAfterAnswer!.data!.duration_s as number).toBeGreaterThanOrEqual(0);
+    });
   });
 
   // ---------------- B. activity command output ----------------
@@ -526,6 +556,45 @@ describe('Task Activity Logs (integration)', () => {
       expect(after.token_usage).toBeDefined();
       expect(after.token_usage!.input_tokens).toBe(7);
       expect(after.model).toBe('claude-sonnet-4');
+    });
+
+    it('31. first status call returns aggregated fields in its response body', async () => {
+      // Regression: after the lazy-aggregation write, the command used to return the
+      // pre-aggregation task snapshot, so the first `agex status` response omitted
+      // token_usage/model/turn_count/files_modified even though they had just been
+      // persisted. Second call would return them; first would not.
+      await initAgex(repo);
+      const id = await createTask(repo, 'first-call aggregate test');
+      const activityFile = join(repo, '.agex', 'tasks', `${id}.activity.jsonl`);
+      const now = new Date().toISOString();
+      const synth = [
+        { ts: now, event: 'session.start', task_id: id, data: { model: 'claude-haiku-4' } },
+        {
+          ts: now,
+          event: 'session.end',
+          task_id: id,
+          data: {
+            tokens: { input_tokens: 42, output_tokens: 21, cache_creation_tokens: 0, cache_read_tokens: 0 },
+            api_calls: 1,
+          },
+        },
+      ].map(e => JSON.stringify(e)).join('\n') + '\n';
+      await appendFile(activityFile, synth);
+
+      const taskFile = join(repo, '.agex', 'tasks', `${id}.json`);
+      const before = parseJson<TaskRecord>(await readFile(taskFile, 'utf-8'));
+      delete before.token_usage;
+      delete before.model;
+      await writeFile(taskFile, JSON.stringify(before, null, 2));
+
+      const res = agex(repo, ['status', id]);
+      expect(res.status).toBe(0);
+      const firstLine = res.stdout.split('\n').find(l => l.trim().startsWith('{'));
+      expect(firstLine).toBeDefined();
+      const status = parseJson<TaskRecord>(firstLine!);
+      expect(status.token_usage).toBeDefined();
+      expect(status.token_usage!.input_tokens).toBe(42);
+      expect(status.model).toBe('claude-haiku-4');
     });
   });
 
