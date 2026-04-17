@@ -67,6 +67,19 @@ describe('formatActivityHuman', () => {
     const output = stripAnsi(formatActivityHuman(result));
     expect(output).toContain('Edit');
     expect(output).toContain('old_string not found');
+    // Regression: file_path / command must appear on tool.failed too, not just tool.call
+    expect(output).toContain('src/main.ts');
+  });
+
+  it('renders tool.failed for Bash with command detail', () => {
+    const result = makeResult([
+      { event: 'task.created', data: { prompt: 'Fix bug' } },
+      { event: 'tool.failed', data: { tool: 'Bash', command: 'rm /nope', error: 'No such file' } },
+    ]);
+    const output = stripAnsi(formatActivityHuman(result));
+    expect(output).toContain('Bash');
+    expect(output).toContain('rm /nope');
+    expect(output).toContain('No such file');
   });
 
   it('renders verification results with pass/fail symbols', () => {

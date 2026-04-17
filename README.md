@@ -130,6 +130,8 @@ npx skills add ruban-24/agex --skill agex
 
 Any agent that can run shell commands works with agex via subprocess mode (`--cmd`).
 
+> **Real-time activity capture is Claude Code only.** `agex activity <id>` shows per-turn tool calls (Read/Edit/Bash/Grep…) for Claude Code sessions via its hook API. Codex and Copilot tasks still record lifecycle events (create, exec, verify, finish, subagent start/stop), but the per-tool timeline won't be populated.
+
 <details>
 <summary><strong>Commands</strong></summary>
 
@@ -155,6 +157,7 @@ All commands output JSON by default — designed for agent consumption. Add `--h
 | `agex list` | List all tasks |
 | `agex output <id>` | Show captured agent output |
 | `agex summary` | Status breakdown of all tasks |
+| `agex activity <id> [--human]` | Per-turn timeline of tool calls, subagents, verification, tokens (Claude Code) |
 
 ### Review
 

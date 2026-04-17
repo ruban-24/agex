@@ -188,7 +188,26 @@ agex stop <id2>
 
 For multi-service apps (frontend + backend), create separate tasks and read each task's URL from `status`.
 
-### 8. When You're Stuck
+### 8. Inspect a Run
+
+After an agent task finishes, replay what it actually did before merging.
+
+```bash
+# Human-readable timeline: tool calls, subagents, verify result, token usage
+agex activity <id> --human
+
+# Machine-readable: JSONL stream of events for post-hoc analysis
+agex activity <id>
+```
+
+Use this to:
+- Sanity-check that the agent worked in the right files before `agex accept`
+- Debug a failed run — which tool failed, with what error, on what input
+- Compare two approaches by what they touched, not just the diff
+
+Limitations: real-time tool capture is Claude Code only (via its hook API). Codex and Copilot tasks get lifecycle events (create, exec, verify, finish, subagent start/stop) but no per-tool timeline. Tools blocked client-side (e.g. read-before-edit guard) don't fire hooks, so they don't appear in the log.
+
+### 9. When You're Stuck
 
 When you hit a decision that requires human input, signal it instead of guessing:
 
@@ -223,6 +242,7 @@ When you hit a decision that requires human input, signal it instead of guessing
 | `agex list` | List all tasks |
 | `agex summary` | Status overview with counts |
 | `agex output <id>` | Show captured agent output |
+| `agex activity <id> [--human]` | Per-turn timeline of tool calls, subagents, verify, tokens (Claude Code only) |
 | `agex verify <id>` | Run verification checks |
 | `agex review <id>` | Show changes vs base branch |
 | `agex compare <id1> <id2> [...]` | Side-by-side task comparison |

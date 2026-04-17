@@ -188,7 +188,26 @@ agex stop <id2>
 
 For multi-service apps (frontend + backend), create separate tasks and read each task's URL from `status`.
 
-### 8. When You're Stuck
+### 8. Inspect a Run
+
+After an agent task finishes, replay what it actually did before merging.
+
+```bash
+# Human-readable timeline: tool calls, subagents, verify result, token usage
+agex activity <id> --human
+
+# Machine-readable: JSONL stream of events for post-hoc analysis
+agex activity <id>
+```
+
+Use this to:
+- Sanity-check that the agent worked in the right files before `agex accept`
+- Debug a failed run — which tool failed, with what error, on what input
+- Compare two approaches by what they touched, not just the diff
+
+Limitations: real-time tool capture is Claude Code only (via its hook API). Codex and Copilot tasks get lifecycle events (create, exec, verify, finish, subagent start/stop) but no per-tool timeline. Tools blocked client-side (e.g. read-before-edit guard) don't fire hooks, so they don't appear in the log.
+
+### 9. When You're Stuck
 
 When you hit a decision that requires human input, signal it instead of guessing:
 
@@ -223,10 +242,11 @@ When you hit a decision that requires human input, signal it instead of guessing
 | `agex list` | List all tasks |
 | `agex summary` | Status overview with counts |
 | `agex output <id>` | Show captured agent output |
+| `agex activity <id> [--human]` | Per-turn timeline of tool calls, subagents, verify, tokens (Claude Code only) |
 | `agex verify <id>` | Run verification checks |
 | `agex review <id>` | Show changes vs base branch |
 | `agex compare <id1> <id2> [...]` | Side-by-side task comparison |
-| `agex accept <id>` | Merge task branch into current branch |
+| `agex accept <id> [--reviewed]` | Merge task branch into current branch (`--reviewed` required in manual mode) |
 | `agex reject <id>` | Remove task worktree and branch |
 | `agex clean` | Clean up all finished tasks |
 | `agex retry <id> --feedback <text>` | Retry failed task with feedback |
@@ -272,7 +292,63 @@ pending -> provisioning -> ready -> running -> verifying -> completed -> merged
 | Creating dependent tasks in parallel | Only parallelize truly independent work |
 | Skipping `compare` with multiple tasks | Compare reveals the best approach — don't guess |
 | Forgetting to clean up | Run `agex clean` after merge/discard cycles |
-| Using `--human` in agent workflows | Default JSON output is designed for agents — use it |
+| Using `--human` when parsing output | Default JSON is for agent logic — use `--human` only when presenting results to the user |
 | Starting servers you don't need | Only `start` when you need to test the running app |
 | Rejecting and recreating instead of retrying | Use `agex retry --feedback` to build on previous work |
 | Erroring out when stuck on a decision | Write `.agex/needs-input.json` and exit — the human will respond |
+
+## Human Review Gate
+
+agex supports two review modes, configured in `.agex/config.yml`:
+
+```yaml
+review: manual  # or auto
+```
+
+### When `review: manual` (default)
+
+**The CLI enforces this.** Running `agex accept <id>` without `--reviewed` or `--human` will fail with an error. You must get human approval first.
+
+After verification passes:
+
+1. Run `agex summary --human` and show the output to the user
+2. For each task the user might accept, run `agex review <id> --human` and show the output
+3. Ask the user: "These tasks passed verification. Accept them?"
+4. Only run `agex accept <id> --reviewed` after the user confirms
+
+The `--reviewed` flag is your assertion that the human approved the merge.
+
+Example conversation flow:
+```
+Agent: All 3 tasks passed verification. Here are the results:
+
+  [agex summary --human output]
+
+  Task abc123 — JWT auth:
+  [agex review abc123 --human output]
+
+  Task def456 — Push notifications:
+  [agex review def456 --human output]
+
+  Accept both? Or would you like to review the full diffs first?
+
+User: Accept both.
+
+Agent: [runs agex accept abc123 --reviewed, agex accept def456 --reviewed]
+```
+
+### When `review: auto`
+
+After verification passes, proceed directly to `agex accept` without asking — no `--reviewed` flag needed. Log what was merged so the user can see it after the fact.
+
+### If no config exists
+
+Default to `manual` behavior — `agex accept` will require `--reviewed` or `--human`.
+
+### How the gate works
+
+- `agex verify` and `agex summary` include `review_mode` in their JSON output — check this to know which mode you're in
+- In manual mode, `agex accept <id>` without flags → error with instructions
+- `agex accept <id> --reviewed` → merges (agent asserts human approved)
+- `agex accept <id> --human` → merges (human is at the terminal)
+- In auto mode, `agex accept <id>` → merges directly

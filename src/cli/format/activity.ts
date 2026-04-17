@@ -99,8 +99,12 @@ function renderToolFailed(event: ActivityEvent): string[] {
   const data = event.data || {};
   const tool = (data.tool as string) || 'unknown';
   const error = (data.error as string) || 'unknown error';
+  const detail = toolKeyDetail(data);
   const ts = dim(formatTimestamp(event.ts));
-  return [`${ts}  ${red('✗')} ${red(padRight(tool, 18))}  ${red(error)}`];
+  const head = `${ts}  ${red('✗')} ${red(padRight(tool, 18))}`;
+  return detail
+    ? [`${head}  ${detail}  ${red(`(${error})`)}`]
+    : [`${head}  ${red(error)}`];
 }
 
 function renderVerification(event: ActivityEvent): string[] {
