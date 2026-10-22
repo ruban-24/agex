@@ -15,6 +15,18 @@
   </p>
 </p>
 
+## Project status
+
+> [!IMPORTANT]
+> **This project has been retired and is no longer maintained.**
+
+I built agex for running coding agents in parallel, each in its own Git
+worktree. It was useful in the early days of coding agents. I retired agex as
+coding agents gained much of this functionality out of the box.
+
+The source and documentation remain available for reference and forks. The
+documentation below describes the project as it stood at retirement.
+
 You ask Claude Code to refactor auth. It works for 10 minutes. You wait. Then you ask it to add notifications. It works for 8 minutes. You wait. Then rate limiting. More waiting.
 
 **What if all three ran at the same time — each on its own branch — and you just picked the results?**
